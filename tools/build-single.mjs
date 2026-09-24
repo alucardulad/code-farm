@@ -8,7 +8,9 @@
  *   退回 WebAudio 合成音，玩法一点不受影响。）
  *
  * 用法：node tools/build-single.mjs
- * 产物：dist/麦田小课堂-v<版本>.html
+ * 产物：dist/code-farm-v<版本>.html
+ *
+ * 文件名保持 ASCII：GitHub Release 上传附件时会把中文名吞掉。
  */
 
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -21,7 +23,7 @@ const ASSET_ROOT = join(ROOT, 'src', 'assets');
 const OUT_DIR = join(ROOT, 'dist');
 
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-const OUT_FILE = join(OUT_DIR, `麦田小课堂-v${pkg.version}.html`);
+const OUT_FILE = join(OUT_DIR, `code-farm-v${pkg.version}.html`);
 
 const MIME = {
   '.png': 'image/png',

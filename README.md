@@ -11,7 +11,7 @@
 
 ## ⬇️ 想直接玩
 
-去 [Releases](https://github.com/alucardulad/code-farm/releases) 下载 **`麦田小课堂-v1.0.0.html`，双击就玩**——
+去 [Releases](https://github.com/alucardulad/code-farm/releases) 下载 **`code-farm-v1.0.0.html`，双击就玩**——
 不用装 Node、不用起服务器、不用联网，精灵图和丰收仙女的语音都打包在这一个文件里。
 
 想读源码、改关卡、自己加新关卡，看下面的「快速开始」。
@@ -236,6 +236,6 @@ tests/levels.test.mjs     关卡与解释器自检
 | 音效 | CC0 | 来自 Freesound，免署名 |
 | 丰收仙女语音 | 随代码 | 由本机原神 Bert-VITS2 预先生成，提交在 `src/assets/voice/` |
 
-Release 里的单文件 `麦田小课堂-vX.Y.Z.html` 把代码、精灵图和仙女语音都内联了进去，
+Release 里的单文件 `code-farm-vX.Y.Z.html` 把代码、精灵图和仙女语音都内联了进去，
 双击即玩，不需要服务器；它拿不到本机素材库的音乐和音效，会自动退回 WebAudio 合成音，
 玩法完全不受影响。想听原声音乐就按「快速开始」起本地服务器。
