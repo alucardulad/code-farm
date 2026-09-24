@@ -25,6 +25,8 @@
   },
   "scripts": {
     "dev": "node tools/dev-server.mjs",
+    "build": "node tools/build-single.mjs",
+    "shots": "node tools/capture-preview.mjs",
     "test": "node tests/levels.test.mjs",
     "check": "node tests/levels.test.mjs"
   }

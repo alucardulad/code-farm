@@ -1,19 +1,41 @@
 # 🌾 麦田小课堂
 
-一个把 **中文代码指令** 和 **像素农场养成** 揉在一起的编程入门小游戏。
+**用中文写代码，教小农夫种地。** 一个把「中文代码指令」和「像素农场养成」揉在一起的编程入门小游戏。
 
-孩子在小木屋里写中文"代码"，小农夫就在农田里照着做：往前走、翻土、播种、浇水、等一天、收小麦。
-一边通关，一边把**顺序、重复、判断**三大编程基础用身体记住。
+孩子在左边的小木屋里写中文代码，小农夫就在右边的农田里照着做：往前走、翻土、播种、浇水、等一天、收小麦。
+26 关打下来，**顺序、重复、判断**三大编程基础，就跟着一锄头一锄头长进手里了。
 
 [![关卡自检](https://github.com/alucardulad/code-farm/actions/workflows/ci.yml/badge.svg)](https://github.com/alucardulad/code-farm/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json)
 
-![第一关](preview/01-第1关.png)
+## ⬇️ 想直接玩
 
-![麦田劳作](preview/03-麦田劳作.png)
+去 [Releases](https://github.com/alucardulad/code-farm/releases) 下载 **`麦田小课堂-v1.0.0.html`，双击就玩**——
+不用装 Node、不用起服务器、不用联网，精灵图和丰收仙女的语音都打包在这一个文件里。
 
-![丰收仙女提示](preview/04-丰收仙女提示.png)
+想读源码、改关卡、自己加新关卡，看下面的「快速开始」。
+
+## ✨ 这一版有什么
+
+| 特色 | 说明 |
+| --- | --- |
+| 🀄 **中文代码，认字就能写** | 一行一条指令，分号可有可无，`//` 和 `#` 写注释 |
+| 🧱 **26 关 4 章，一关只教一个新东西** | 顺序 → 重复 → 判断 → 综合，新语法绝不提前冒出来 |
+| 🐣 **写错不炸，只讲人话** | 标红出错那一行，提示"这块地还没翻过，先用「翻土」吧" |
+| 🧚 **丰收仙女穗穗** | 点「提示」展开本关要点，还用坎蒂丝音色念出来；看答案前先劝你"自己写一遍" |
+| 🐔 **通关解锁自由农场** | 种小麦 → 收稻草 → 喂鸡 → 等一天 → 收鸡蛋，进度一直存着 |
+| ⭐ **按步数评三星** | 同一关写得越利索星星越多，26 关进度和星星都存在本地 |
+| 👦👧 **男孩女孩一键换** | 右上角随时换小农夫形象 |
+| 📦 **零依赖纯静态** | 只用 Node 内置模块跑测试，游戏本身不依赖任何框架 |
+
+## 📷 截图
+
+| 第 1 关 · 看懂第一条指令 | 麦田劳作 · 一边跑一边高亮 |
+| --- | --- |
+| ![第一关](preview/01-第1关.png) | ![麦田劳作](preview/03-麦田劳作.png) |
+| **过关结算 · 按步数评三星** | **丰收仙女穗穗 · 会开口的提示** |
+| ![过关结算](preview/02-过关结算.png) | ![丰收仙女提示](preview/04-丰收仙女提示.png) |
 
 ---
 
@@ -22,6 +44,8 @@
 ```bash
 npm run dev          # 启动本地服务器，浏览器打开 http://localhost:5173
 npm test             # 关卡自检（26 关参考解全部真跑一遍）
+npm run build        # 打包单文件 HTML 到 dist/（就是 Release 里那个附件）
+npm run shots        # 改过界面后重拍 README 预览图（需要先跑着 npm run dev）
 ```
 
 零依赖：不需要 `npm install`，只用 Node 内置模块，Node 18 及以上都能跑。
@@ -145,8 +169,8 @@ TTS_PYTHON=/path/to/venv/bin/python TTS_SERVER=/path/to/tts_server.py \
 /media/music/*  →  ~/Documents/ChatGPT/语音合成/音乐库
 ```
 
-如果素材取不到（比如直接双击打开 `index.html`），游戏会自动退回 WebAudio 合成音，
-照样有反馈，不会报错也不会静音。
+素材取不到时（比如玩 Release 里的单文件版、或者在没装素材库的机器上跑），
+游戏会自动退回 WebAudio 合成音，照样有反馈，不会报错也不会静音。
 
 ### 素材致谢
 
@@ -189,6 +213,8 @@ src/
 
 tools/dev-server.mjs      零依赖静态服务器 + 素材库映射
 tools/generate_tutor_voice.mjs  用坎蒂丝音色批量生成仙女提示语音
+tools/build-single.mjs    打包成单文件 HTML（产物在 dist/）
+tools/capture-preview.mjs 用无头 Chrome 重拍 README 里的预览图
 tests/levels.test.mjs     关卡与解释器自检
 ```
 
@@ -210,5 +236,6 @@ tests/levels.test.mjs     关卡与解释器自检
 | 音效 | CC0 | 来自 Freesound，免署名 |
 | 丰收仙女语音 | 随代码 | 由本机原神 Bert-VITS2 预先生成，提交在 `src/assets/voice/` |
 
-直接双击 `index.html` 也能玩，只是拿不到本机音乐库的音乐，此时会自动退回 WebAudio
-合成音。
+Release 里的单文件 `麦田小课堂-vX.Y.Z.html` 把代码、精灵图和仙女语音都内联了进去，
+双击即玩，不需要服务器；它拿不到本机素材库的音乐和音效，会自动退回 WebAudio 合成音，
+玩法完全不受影响。想听原声音乐就按「快速开始」起本地服务器。
