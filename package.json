@@ -1,0 +1,31 @@
+{
+  "name": "code-farm",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "麦田小课堂：用中文代码指令学习编程的像素农场养成游戏",
+  "license": "MIT",
+  "homepage": "https://github.com/alucardulad/code-farm#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alucardulad/code-farm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alucardulad/code-farm/issues"
+  },
+  "keywords": [
+    "教育",
+    "编程入门",
+    "中文编程",
+    "像素游戏",
+    "canvas"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "node tools/dev-server.mjs",
+    "test": "node tests/levels.test.mjs",
+    "check": "node tests/levels.test.mjs"
+  }
+}
