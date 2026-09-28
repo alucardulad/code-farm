@@ -12,14 +12,7 @@ export const MUSIC_CREDITS = [
     author: 'HoneyTune',
     license: 'CC BY',
     source: 'https://www.jamendo.com/track/2269002',
-    note: '第 1~2 章背景音乐',
-  },
-  {
-    title: 'An Easy Step of Luck',
-    author: 'Efr - Enhanced Full Rate',
-    license: 'CC BY',
-    source: 'https://www.jamendo.com/track/1540325',
-    note: '第 3~5 章背景音乐',
+    note: '全流程背景音乐',
   },
 ];
 

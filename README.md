@@ -239,8 +239,9 @@ npm run shots        # 改过界面后重拍 README 预览图（需要先跑着 
 
 ## 音频
 
-**背景音乐**：轻快的尤克里里（第 1~2 章）与温和钢琴（第 3 章以后）交叉淡入淡出，
-另叠一层很轻的鸟鸣环境音；点运行时代码音乐会自动压低，不盖住音效。
+**背景音乐**：全流程统一一首轻快的尤克里里（Happy Coconuts），从第 1 关到自由模式
+都不换曲，避免孩子被换歌分心；另叠一层很轻的鸟鸣环境音，
+点运行时代码音乐会自动压低，不盖住音效。
 
 **音效**：走路踩草、翻土、播种、浇水、发芽、收获、金币、鸡叫、牛叫、挤奶、
 公鸡打鸣、按钮、走不通、代码报错、过关小号和通关庆祝，全部接在对应事件上。
@@ -283,8 +284,7 @@ TTS_PYTHON=/path/to/venv/bin/python TTS_SERVER=/path/to/tts_server.py \
 
 | 曲目 | 作者 | 许可 | 用途 |
 | --- | --- | --- | --- |
-| Happy Coconuts (60s Edit) | HoneyTune | CC BY | 第 1~2 章 |
-| An Easy Step of Luck | Efr - Enhanced Full Rate | CC BY | 第 3 章以后 |
+| Happy Coconuts (60s Edit) | HoneyTune | CC BY | 全流程背景音乐 |
 
 音效均来自 Freesound，全部为 **CC0**（免署名，仍在此致谢）：
 Wet Click / 脚步 / Space Swoosh / shoveling-dirt / Planting (Seeds) / Pouring Liquid /
@@ -338,7 +338,7 @@ tests/levels.test.mjs     关卡与解释器自检
 
 | 素材 | 许可 | 说明 |
 | --- | --- | --- |
-| 背景音乐 | CC BY | 需署名作者，未提交进仓库，需自备素材库 |
+| 背景音乐 | CC BY | 全流程 1 首「Happy Coconuts」，需署名作者，未提交进仓库，需自备素材库 |
 | 音效 | CC0 | 来自 Freesound，免署名 |
 | 丰收仙女语音 | 随代码 | 由本机原神 Bert-VITS2 预先生成，提交在 `src/assets/voice/` |
 

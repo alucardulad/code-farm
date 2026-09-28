@@ -8,7 +8,7 @@
  * 如果素材取不到（例如直接双击打开 html），会自动退回合成音，
  * 游戏照样有声音反馈，不会报错、不会静音。
  *
- * 音乐：Chapter 1~2 用轻快 ukulele，Chapter 3~4 换成温和钢琴；
+ * 音乐：全场统一用一首轻快 ukulele（Happy Coconuts），从第 1 关到自由模式不换曲；
  * 另叠一层很轻的鸟鸣环境音。
  */
 
@@ -64,7 +64,6 @@ const SFX = {
 /** 背景音乐与环境音。 */
 const MUSIC = {
   farm: '/media/music/2269002_Happy_Coconuts_60s_Edit.mp3',
-  calm: '/media/music/1540325_An_Easy_Step_of_Luck.mp3',
 };
 
 const AMBIENCE = '/media/sfx/266832_Bird_chirping.mp3';

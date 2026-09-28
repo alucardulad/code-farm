@@ -282,13 +282,13 @@ export function mountApp(root) {
   tutorVoice.addEventListener('pause', stopTutorVoice);
   tutorVoice.addEventListener('error', stopTutorVoice);
 
-  /** 前两章用轻快的尤克里里，后两章换成温和钢琴，避免听腻。 */
-  const musicForChapter = () => (chapterNumber(level()) <= 2 ? 'farm' : 'calm');
+  /** 全场统一一首背景音乐，不随章节切换，孩子不会因为换曲分心。 */
+  const THEME_MUSIC = 'farm';
 
   // 浏览器要求先有用户操作才能播声音。
   const unlockAudio = () => {
     SOUND.unlock();
-    SOUND.playMusic(musicForChapter());
+    SOUND.playMusic(THEME_MUSIC);
   };
   window.addEventListener('pointerdown', unlockAudio, { once: true });
   window.addEventListener('keydown', unlockAudio, { once: true });
@@ -479,7 +479,7 @@ export function mountApp(root) {
     resize();
     renderHUD();
     setBubble(def.objective, 'info');
-    SOUND.playMusic(musicForChapter());
+    SOUND.playMusic(THEME_MUSIC);
     state.progress.lastMode = 'levels';
     saveProgress(state.progress);
   }
@@ -508,7 +508,7 @@ export function mountApp(root) {
     resize();
     renderHUD();
     setBubble('自由农场已经开张。种小麦换稻草，用稻草喂鸡喂牛，收鸡蛋、挤牛奶，慢慢把农场做大吧！', 'success');
-    SOUND.playMusic('farm');
+    SOUND.playMusic(THEME_MUSIC);
     saveFreeWorld();
     if (focusEditor) editor.focus();
   }
