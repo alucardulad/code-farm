@@ -103,7 +103,7 @@ export class FarmAnimator {
         break;
       case 'harvest':
         this.sound?.play('harvest');
-        this.addEffect('sparkle', event.x, event.y, 700, '+5 金币');
+        this.addEffect('sparkle', event.x, event.y, 700, `+${event.coins ?? 5} 金币`);
         await wait(ACTION_MS + 80);
         break;
       case 'blocked':
@@ -144,6 +144,36 @@ export class FarmAnimator {
         this.sound?.play('coin');
         this.addEffect('sparkle', event.x, event.y, 760, `+${event.amount} 鸡蛋`);
         await wait(520);
+        break;
+      case 'milk':
+        this.sound?.play('milk');
+        this.addEffect('milk', event.x, event.y, 820, `+${event.amount} 牛奶`);
+        await wait(620);
+        break;
+      case 'sell':
+        this.sound?.play('coin');
+        this.addEffect('sell', event.x, event.y, 780, `+${event.amount} 金币`);
+        await wait(560);
+        break;
+      case 'buy':
+        this.sound?.play('plant');
+        this.addEffect('buy', event.x, event.y, 620, `+${event.amount} ${event.label ?? ''}`);
+        await wait(440);
+        break;
+      case 'newAnimal':
+        this.sound?.play('chicken');
+        this.addEffect('sparkle', event.x, event.y, 760, event.label ?? '新伙伴');
+        await wait(560);
+        break;
+      case 'feedCow':
+        this.sound?.play('cow');
+        this.addEffect('feedCow', event.x, event.y, 660, '吃饱啦');
+        await wait(540);
+        break;
+      case 'milkReady':
+        this.sound?.play('grow');
+        this.addEffect('milkReady', event.x, event.y, 620);
+        await wait(320);
         break;
       default:
         await wait(120);

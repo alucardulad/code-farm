@@ -41,3 +41,24 @@ export const TUTOR_LINES = {
 export function getTutorLine(key) {
   return TUTOR_LINES[key] ?? null;
 }
+
+/**
+ * 台词的简易指纹（FNV-1a 十六进制）。
+ * 配音生成脚本用它判断「台词改了但 mp3 还是旧的」，避免提示和录音对不上。
+ */
+export function tutorLineHash(text) {
+  let h = 0x811c9dc5;
+  const str = String(text ?? '');
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+/** 全部台词当前的指纹表：{ 键: 指纹 }。 */
+export function tutorLineHashes() {
+  return Object.fromEntries(
+    Object.entries(TUTOR_LINES).map(([key, line]) => [key, tutorLineHash(line.text)]),
+  );
+}

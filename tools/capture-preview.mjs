@@ -151,11 +151,28 @@ async function main() {
     await cdp.waitFor('window.__farm && document.querySelector("#canvas")', { label: '游戏挂载完成' });
     await sleep(1200); // 等精灵图和首帧画完
 
+    /** 开篇遮罩会挡住农场，截图前先走完「开篇 → 建角色 → 选模式」。 */
+    const skipOnboarding = async (mode = 'levels') => {
+      await cdp.waitFor('!document.querySelector("#modeGate").hidden', { label: '开篇遮罩' });
+      await cdp.evaluate(`
+        document.querySelector('#openingStartBtn').click();
+        const input = document.querySelector('#playerNameInput');
+        input.value = '小满';
+        input.dispatchEvent(new Event('input'));
+        document.querySelector('#profileContinueBtn').click();
+        document.querySelector('${mode === 'free' ? '#freeModeBtn' : '#teachModeBtn'}').click();
+        return true;
+      `);
+      await sleep(600);
+    };
+
     // 1) 第一关初始画面
     await cdp.evaluate('localStorage.clear(); return true;');
     await cdp.send('Page.reload');
     await cdp.waitFor('window.__farm && document.querySelector("#taskText")?.textContent', { label: '关卡载入' });
     await sleep(1200);
+    await skipOnboarding();
+    await sleep(700);
     await cdp.shot('01-第1关.png');
 
     // 2) 过关结算：真跑一遍第一关，让结算弹窗自己弹出来
@@ -185,7 +202,10 @@ async function main() {
     await cdp.send('Page.reload');
     await cdp.waitFor('window.__farm && document.querySelector("#canvas")', { label: '游戏挂载完成' });
     await sleep(800);
-    await cdp.evaluate('document.querySelector(".dot-btn[data-index=\\"7\\"]").click(); return true;');
+    await skipOnboarding();
+    await cdp.evaluate(`document.querySelector('.chapter-tab[data-chapter="ch4"]')?.click(); return true;`);
+    await sleep(400);
+    await cdp.evaluate(`document.querySelector('.dot-btn[data-index="25"]')?.click(); return true;`);
     await sleep(500);
     await cdp.evaluate(`
       window.__farm.editor.setValue('翻土\\n播种\\n浇水');
@@ -199,7 +219,7 @@ async function main() {
     await cdp.waitFor('!window.__farm.state.running', { label: '本轮运行结束' });
     await cdp.evaluate(`
       document.querySelector('.modal-mask')?.remove();
-      document.querySelector('.dot-btn[data-index="7"]').click();
+      document.querySelector('.dot-btn[data-index="7"]')?.click();
       return true;
     `);
     await sleep(500);
@@ -225,6 +245,33 @@ async function main() {
       };
     `);
     console.log('📐 版面：', JSON.stringify(layout, null, 0));
+
+    // 5) 牧场：切到第 4 章，跑第 27 关的「喂鸡 + 喂牛 + 收蛋 + 挤奶」
+    await cdp.evaluate(`
+      const p = JSON.parse(localStorage.getItem('code-farm-progress-v1'));
+      p.unlocked = 31;
+      for (let n = 1; n <= 22; n += 1) p.stars['level-' + n] = p.stars['level-' + n] ?? 3;
+      localStorage.setItem('code-farm-progress-v1', JSON.stringify(p));
+      return true;
+    `);
+    await cdp.send('Page.reload');
+    await cdp.waitFor('window.__farm && document.querySelector("#canvas")', { label: '游戏挂载完成' });
+    await sleep(800);
+    await skipOnboarding();
+    await cdp.evaluate(`document.querySelector('.chapter-tab[data-chapter="ch4"]')?.click(); return true;`);
+    await sleep(500);
+    await cdp.evaluate(`document.querySelector('.dot-btn[data-index="26"]')?.click(); return true;`);
+    await sleep(600);
+    await cdp.shot('05-牧场劳作.png');
+
+    await cdp.evaluate(`
+      window.__farm.editor.setValue('右转\\n前进\\n左转\\n前进\\n喂鸡\\n喂牛\\n等待一天\\n如果 鸡舍里有鸡蛋 {\\n  收鸡蛋\\n}\\n挤奶');
+      document.querySelector('#runBtn').click();
+      return true;
+    `);
+    await cdp.waitFor('window.__farm.state.world.eggs > 0', { label: '收到鸡蛋' });
+    await sleep(150);
+    await cdp.shot('06-收鸡蛋.png');
     socket.close();
   } finally {
     chrome.kill('SIGKILL');

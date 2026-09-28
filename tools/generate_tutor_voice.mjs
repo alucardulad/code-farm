@@ -7,10 +7,10 @@
  */
 
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TUTOR_LINES, TUTOR_VOICE } from '../src/core/tutor-lines.js';
+import { TUTOR_LINES, TUTOR_VOICE, tutorLineHash } from '../src/core/tutor-lines.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = join(ROOT, 'src', 'assets', 'voice');
@@ -18,13 +18,25 @@ const TTS_DIR = '/Users/alucardulad/Documents/ChatGPT/语音合成';
 const TTS_PYTHON = process.env.TTS_PYTHON ?? '/Users/alucardulad/style-bert-vits2-mcp/venv/bin/python';
 const TTS_SERVER = process.env.TTS_SERVER ?? join(TTS_DIR, 'tts_server.py');
 const force = process.argv.includes('--force');
-const only = process.argv.find((arg) => arg.startsWith('--only='))?.slice(7);
+const onlyArg = process.argv.find((arg) => arg.startsWith('--only='))?.slice(7);
+/** 支持 --only=level-26 或 --only=level-26,level-27 只补指定台词。 */
+const only = onlyArg ? new Set(onlyArg.split(',').map((key) => key.trim()).filter(Boolean)) : null;
 
+const MANIFEST = join(OUT_DIR, 'voice-manifest.json');
 mkdirSync(OUT_DIR, { recursive: true });
 
+/** 读取上次生成时的台词指纹，用判断哪些 mp3 已经过期。 */
+const manifest = readJsonSafe(MANIFEST) ?? {};
+
+/** 台词和 mp3 现在是否对得上。 */
+function isFresh(key, line) {
+  if ((readFileSyncSafe(join(OUT_DIR, line.file))?.length ?? 0) < 4096) return false;
+  return manifest[key] === tutorLineHash(line.text);
+}
+
 const entries = Object.entries(TUTOR_LINES)
-  .filter(([key]) => !only || key === only)
-  .filter(([, line]) => force || (readFileSyncSafe(join(OUT_DIR, line.file))?.length ?? 0) < 4096);
+  .filter(([key]) => !only || only.has(key))
+  .filter(([key, line]) => force || !isFresh(key, line));
 
 if (entries.length === 0) {
   console.log('提示语音已经齐全，无需重新生成。');
@@ -87,11 +99,26 @@ for (let i = 0; i < entries.length; i += 1) {
   console.log(`✓ ${key} → ${line.file}`);
 }
 
+// 更新指纹表：记录每条台词生成时的指纹，方便下次判断是否过期。
+for (const [key, line] of Object.entries(TUTOR_LINES)) {
+  manifest[key] = tutorLineHash(line.text);
+}
+writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + '\n');
 console.log(`完成：${entries.length} 条提示语音，音色 ${TUTOR_VOICE.speaker}。`);
+console.log(`指纹表：${MANIFEST}`);
 
 function readFileSyncSafe(path) {
   try {
     return readFileSync(path);
+  } catch {
+    return null;
+  }
+}
+
+function readJsonSafe(path) {
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
   } catch {
     return null;
   }

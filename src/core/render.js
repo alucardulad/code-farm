@@ -43,6 +43,10 @@ const C = {
   boot: '#6b4526',
   hat: '#e5b95c',
   hatDark: '#b98a34',
+  awningA: '#f2f4f6',
+  awningB: '#e2564a',
+  stall: '#c98f4e',
+  stallDark: '#96622f',
   chicken: '#fdf6e6',
   cow: '#fbf6ee',
   cowDark: '#3a3a3a',
@@ -298,6 +302,52 @@ function drawCoop(ctx, x, y, s, tx, ty, drawGround = true) {
   px(ctx, cx + s * 0.2, y + s * 0.5, w - s * 0.4, s * 0.4, C.woodDark);
 }
 
+/** 集市：条纹雨棚 + 木柜台 + 价签，2×2。 */
+function drawMarket(ctx, x, y, s, tx, ty, drawGround = true) {
+  if (drawGround) drawGrass(ctx, x, y, s, tx, ty);
+  if (drawTileSprite(ctx, 'market', x, y, s)) return;
+
+  const w = s * 1.84;
+  const left = x + s * 0.08;
+
+  // 立柱
+  px(ctx, left, y + s * 0.34, 5, s * 1.5, C.woodDark);
+  px(ctx, left + w - 5, y + s * 0.34, 5, s * 1.5, C.woodDark);
+
+  // 条纹雨棚（两排交错）
+  for (let i = 0; i < 8; i += 1) {
+    const bandW = w / 8;
+    px(ctx, left + i * bandW, y + s * 0.2, bandW, s * 0.2, i % 2 === 0 ? C.awningA : C.awningB);
+    px(ctx, left + i * bandW, y + s * 0.4, bandW, s * 0.12, i % 2 === 0 ? C.awningB : C.awningA);
+  }
+
+  // 柜台
+  px(ctx, left + s * 0.12, y + s * 0.94, w - s * 0.24, s * 0.5, C.stall);
+  px(ctx, left + s * 0.12, y + s * 0.94, w - s * 0.24, 5, C.stallDark);
+  px(ctx, left + s * 0.12, y + s * 1.14, w - s * 0.24, 4, C.stallDark);
+
+  // 柜台上的货：鸡蛋、奶瓶、小麦袋
+  ctx.fillStyle = '#f8f0d2';
+  ctx.beginPath();
+  ctx.ellipse(left + s * 0.36, y + s * 0.9, s * 0.07, s * 0.1, 0, 0, Math.PI * 2);
+  ctx.fill();
+  px(ctx, left + s * 0.62, y + s * 0.74, s * 0.14, s * 0.2, '#ffffff');
+  px(ctx, left + s * 0.62, y + s * 0.72, s * 0.14, 4, '#a8b4c0');
+  px(ctx, left + s * 0.94, y + s * 0.8, s * 0.2, s * 0.14, C.wheatGold);
+  px(ctx, left + s * 0.94, y + s * 0.8, s * 0.2, 3, C.wheatDark);
+
+  // 价签
+  px(ctx, left + s * 1.28, y + s * 0.6, s * 0.44, s * 0.28, '#f8e29a');
+  px(ctx, left + s * 1.28, y + s * 0.6, s * 0.44, 3, C.stallDark);
+  ctx.fillStyle = C.stallDark;
+  ctx.font = `bold ${Math.round(s * 0.18)}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('集市', left + s * 1.5, y + s * 0.76);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
+
 /** 多格建筑按自身占位绘制；图片加载失败时退回 Canvas 像素画。 */
 function drawStructure(ctx, structure, x, y, tile) {
   const size = tile * structure.width;
@@ -309,6 +359,7 @@ function drawStructure(ctx, structure, x, y, tile) {
   if (structure.kind === TILE.HOUSE) drawHouse(ctx, x, y, size, structure.x, structure.y, false);
   else if (structure.kind === TILE.BARN) drawBarn(ctx, x, y, size, structure.x, structure.y, false);
   else if (structure.kind === TILE.COOP) drawCoop(ctx, x, y, size, structure.x, structure.y, false);
+  else if (structure.kind === TILE.MARKET) drawMarket(ctx, x, y, tile, structure.x, structure.y, false);
 }
 
 // ------------------------------------------------------------------ 角色
@@ -444,13 +495,70 @@ function drawCowFallback(ctx, x, y, s, t) {
 
 function drawCow(ctx, x, y, s, t) {
   const image = getSprite('cow');
+  const bob = Math.sin(t * 1.4 + y) * s * 0.012;
   if (!image) {
     drawCowFallback(ctx, x, y, s, t);
-    return;
+  } else {
+    drawSpriteShadow(ctx, x, y, s, 0.42);
+    drawSprite(ctx, image, x, y, s, { width: 0.98, height: 0.98, bottom: 0.98, bob });
   }
-  const bob = Math.sin(t * 1.4 + y) * s * 0.012;
-  drawSpriteShadow(ctx, x, y, s, 0.42);
-  drawSprite(ctx, image, x, y, s, { width: 0.98, height: 0.98, bottom: 0.98, bob });
+}
+
+/** 通用状态气泡：一个圆角小牌子，里面是图标或短文字。 */
+function drawStatusBubble(ctx, x, y, s, t, text, color = '#f8e29a') {
+  const float = Math.sin(t * 2 + x * 0.1) * s * 0.045;
+  const cx = x + s * 0.5;
+  const cy = y - s * 0.02 + float;
+  const w = s * (text.length > 1 ? 0.52 : 0.34);
+  const h = s * 0.3;
+
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#6b4322';
+  ctx.lineWidth = Math.max(1.2, s * 0.025);
+  ctx.beginPath();
+  const r = h * 0.42;
+  ctx.moveTo(cx - w / 2 + r, cy - h / 2);
+  ctx.lineTo(cx + w / 2 - r, cy - h / 2);
+  ctx.quadraticCurveTo(cx + w / 2, cy - h / 2, cx + w / 2, cy - h / 2 + r);
+  ctx.lineTo(cx + w / 2, cy + h / 2 - r);
+  ctx.quadraticCurveTo(cx + w / 2, cy + h / 2, cx + w / 2 - r, cy + h / 2);
+  ctx.lineTo(cx - w / 2 + r, cy + h / 2);
+  ctx.quadraticCurveTo(cx - w / 2, cy + h / 2, cx - w / 2, cy + h / 2 - r);
+  ctx.lineTo(cx - w / 2, cy - h / 2 + r);
+  ctx.quadraticCurveTo(cx - w / 2, cy - h / 2, cx - w / 2 + r, cy - h / 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#5c3a1c';
+  ctx.font = `bold ${Math.round(s * 0.2)}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, cx, cy + s * 0.01);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
+
+/** 鸡和牛的状态：没喂显示「饿」，喂饱显示「饱」。 */
+function drawAnimalStatus(ctx, x, y, s, t, fed) {
+  drawStatusBubble(ctx, x, y, s, t, fed ? '饱' : '饿', fed ? '#b6e39a' : '#f8c98a');
+}
+
+/** 今天还能挤奶的奶牛，头顶浮一个奶滴，一眼看得出来。 */
+function drawMilkHint(ctx, x, y, s, t) {
+  const float = Math.sin(t * 2 + x) * s * 0.05;
+  const cx = x + s * 0.5;
+  const cy = y - s * 0.06 + float;
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#7e5d36';
+  ctx.lineWidth = Math.max(1.5, s * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - s * 0.16);
+  ctx.quadraticCurveTo(cx + s * 0.14, cy + s * 0.04, cx, cy + s * 0.14);
+  ctx.quadraticCurveTo(cx - s * 0.14, cy + s * 0.04, cx, cy - s * 0.16);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
 }
 
 function drawFlag(ctx, x, y, s, t) {
@@ -552,6 +660,52 @@ function drawEffects(ctx, effects, now, layout) {
     } else if (effect.kind === 'grow') {
       ctx.fillStyle = `rgba(150, 230, 130, ${0.9 * (1 - p)})`;
       ctx.fillRect(x + s * 0.3, y + s * (0.6 - p * 0.4), s * 0.4, 5);
+    } else if (effect.kind === 'milk') {
+      // 奶滴落进奶桶
+      const dropY = y + s * (0.5 + p * 0.34);
+      for (let i = 0; i < 3; i += 1) {
+        ctx.fillStyle = `rgba(255, 252, 240, ${0.95 - p * i * 0.25})`;
+        ctx.beginPath();
+        ctx.ellipse(x + s * (0.3 + i * 0.2), dropY - i * s * 0.12, s * 0.07, s * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // 桶
+      ctx.fillStyle = '#cfd8e2';
+      ctx.fillRect(x + s * 0.3, y + s * 0.84, s * 0.4, s * 0.14);
+      ctx.fillStyle = '#aeb9c6';
+      ctx.fillRect(x + s * 0.3, y + s * 0.84, s * 0.4, 3);
+    } else if (effect.kind === 'sell') {
+      // 金币往上飘
+      ctx.fillStyle = `rgba(255, 214, 92, ${1 - p})`;
+      for (let i = 0; i < 5; i += 1) {
+        const cx = x + s * (0.4 + i * 0.3);
+        const cy = y + s * (0.6 - p * 0.5 - i * 0.05);
+        ctx.beginPath();
+        ctx.arc(cx, cy, s * 0.07, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (effect.kind === 'buy') {
+      // 货物落进背包
+      ctx.fillStyle = `rgba(180, 230, 150, ${0.95 - p * 0.6})`;
+      for (let i = 0; i < 3; i += 1) {
+        const cx = x + s * (0.5 + i * 0.25);
+        const cy = y + s * (0.35 + p * 0.35);
+        ctx.fillRect(cx, cy, s * 0.08, s * 0.1);
+      }
+    } else if (effect.kind === 'feedCow') {
+      // 稻草落进料槽
+      ctx.fillStyle = `rgba(226, 190, 96, ${0.95 - p * 0.6})`;
+      for (let i = 0; i < 4; i += 1) {
+        const sx = x + s * (0.28 + i * 0.15);
+        const sy = y + s * (0.3 + p * 0.32);
+        ctx.fillRect(sx, sy, s * 0.05, s * (0.16 - p * 0.06));
+      }
+    } else if (effect.kind === 'milkReady') {
+      // 新的一天，牛身上的奶滴亮一下
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.9 * (1 - p)})`;
+      ctx.beginPath();
+      ctx.arc(x + s * 0.5, y + s * (0.4 - p * 0.2), s * (0.1 + p * 0.08), 0, Math.PI * 2);
+      ctx.fill();
     } else if (effect.kind === 'egg') {
       const eggY = y + s * (0.72 - p * 0.35);
       ctx.fillStyle = `rgba(245, 238, 210, ${1 - p})`;
@@ -638,13 +792,23 @@ export function paintFrame(ctx, world, layout, anim) {
     drawFlag(ctx, ox + world.goalPos.x * tile, oy + world.goalPos.y * tile, tile, time);
   }
 
+  // 牧场章节和自由农场才显示动物状态，前面的教学关里鸡牛只是装饰。
+  const chapter = world.level?.chapter;
+  const showAnimalStatus = chapter === 'ch4' || chapter === 'ch5' || world.level?.mode === 'free';
+
   // 动物
   for (const animal of world.animals) {
     const dx = ox + animal.x * tile;
     const dy = oy + animal.y * tile;
     drawGrass(ctx, dx, dy, tile, animal.x, animal.y);
-    if (animal.kind === 'chicken') drawChicken(ctx, dx, dy, tile, time);
-    else drawCow(ctx, dx, dy, tile, time);
+    if (animal.kind === 'chicken') {
+      drawChicken(ctx, dx, dy, tile, time);
+      if (showAnimalStatus) drawAnimalStatus(ctx, dx, dy, tile, time, animal.fedToday === true);
+    } else {
+      drawCow(ctx, dx, dy, tile, time);
+      if (animal.milkReady !== false) drawMilkHint(ctx, dx, dy, tile, time);
+      else if (showAnimalStatus) drawAnimalStatus(ctx, dx, dy, tile, time, animal.fedToday === true);
+    }
   }
 
   // 小农夫脚下高亮

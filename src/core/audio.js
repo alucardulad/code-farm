@@ -25,6 +25,7 @@ const FALLBACK_NOTES = {
   win: [{ f: 523, d: 0.1 }, { f: 659, d: 0.1 }, { f: 784, d: 0.1 }, { f: 1046, d: 0.26 }],
   error: [{ f: 260, d: 0.12, type: 'sawtooth' }, { f: 200, d: 0.16, type: 'sawtooth' }],
   click: [{ f: 620, d: 0.03, type: 'triangle' }],
+  milk: [{ f: 380, d: 0.07, type: 'sine' }, { f: 520, d: 0.09, type: 'sine' }],
 };
 
 /** 音效表：一个事件可以叠多段声音（比如收获 = 拔麦 + 金币）。 */
@@ -47,6 +48,10 @@ const SFX = {
   day: [{ file: '435508_Rooster_Crow_1.mp3', volume: 0.42 }],
   chicken: [{ file: '668803_Chicken_clucking_3.mp3', volume: 0.3 }],
   cow: [{ file: '59245_z-moo01.mp3', volume: 0.32 }],
+  milk: [
+    { file: '59245_z-moo01.mp3', volume: 0.26, rate: 1.1 },
+    { file: '207781_Pouring_Liquid.mp3', volume: 0.34, rate: 1.25, delay: 0.18 },
+  ],
   blocked: [{ file: '447910_Plop.mp3', volume: 0.42 }],
   error: [{ file: '493163_Buzzer_sounds_Wrong_answer_Error.mp3', volume: 0.22, rate: 1.1 }],
   success: [{ file: '717771_victory_chime.mp3', volume: 0.5 }],

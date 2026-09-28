@@ -7,9 +7,17 @@
  *   's' 幼苗    'r' 成熟小麦                '@' 出生点（每关一个）
  *   '#' 栅栏    'T' 树      'R' 石头        'W' 水井
  *   'H' 小屋    'B' 谷仓（占 2×2，字符为左下角）
- *   'C' 鸡舍（占 2×1，字符为左下角）
+ *   'C' 鸡舍（占 2×1，字符为左下角）   'M' 集市（占 2×2，字符为左下角）
  *   '~' 池塘
- *   'c' 小鸡    'm' 奶牛
+ *   'c' 小鸡    'm' 奶牛（开局有奶）   'n' 奶牛（今天没奶，挤过或开局就没奶）
+ *
+ * 农场的产出链：
+ *   小麦田 → 收获 → 小麦 + 稻草；
+ *   稻草喂鸡 → 等一天 → 鸡舍下蛋 → 收鸡蛋；
+ *   稻草喂牛 → 等一天 → 奶牛产奶 → 挤奶（每头牛每天一瓶）；
+ *   鸡蛋 / 牛奶 / 小麦 → 集市卖掉 → 金币 → 买种子、买稻草 → 再种一轮。
+ *
+ * 稻草是鸡和牛共同的口粮，金币是让农场继续转下去的燃料。
  */
 
 /** 地形类型，决定能不能走、能不能种。 */
@@ -25,6 +33,7 @@ export const TILE = {
   HOUSE: 'house',
   BARN: 'barn',
   COOP: 'coop',
+  MARKET: 'market',
   WATER: 'water',
   FLAG: 'flag',
 };
@@ -38,6 +47,7 @@ const BLOCKING = new Set([
   TILE.HOUSE,
   TILE.BARN,
   TILE.COOP,
+  TILE.MARKET,
   TILE.WATER,
 ]);
 
@@ -57,6 +67,7 @@ const TILE_ALIASES = {
   H: TILE.HOUSE,
   B: TILE.BARN,
   C: TILE.COOP,
+  M: TILE.MARKET,
   '~': TILE.WATER,
   G: TILE.FLAG,
 };
@@ -81,6 +92,7 @@ export const TILE_NAME = {
   [TILE.HOUSE]: '小屋',
   [TILE.BARN]: '谷仓',
   [TILE.COOP]: '鸡舍',
+  [TILE.MARKET]: '集市',
   [TILE.WATER]: '池塘',
   [TILE.FLAG]: '目标点',
 };
@@ -123,9 +135,21 @@ export function createWorld(level) {
         line.push(standing);
         continue;
       }
-      if (char === 'c' || char === 'm') {
+      if (char === 'c' || char === 'm' || char === 'n') {
         line.push(TILE.GRASS);
-        animals.push({ kind: char === 'c' ? 'chicken' : 'cow', x, y, phase: (x * 7 + y * 13) % 100 });
+        const isCow = char !== 'c';
+        animals.push({
+          kind: isCow ? 'cow' : 'chicken',
+          x,
+          y,
+          phase: (x * 7 + y * 13) % 100,
+          // 奶牛每天有一瓶奶；挤完要喂它吃稻草、等一天才会再有。
+          // 'n' 表示这头牛今天没奶（例如已经挤过）。
+          fedToday: false,
+          ...(isCow ? {
+            milkReady: char === 'n' ? false : (level.startMilkReady ?? true),
+          } : {}),
+        });
         continue;
       }
       if (char === 'G') {
@@ -134,8 +158,11 @@ export function createWorld(level) {
         line.push(TILE.GRASS);
         continue;
       }
-      if (char === 'H' || char === 'B' || char === 'C') {
-        const kind = char === 'H' ? TILE.HOUSE : char === 'B' ? TILE.BARN : TILE.COOP;
+      if (char === 'H' || char === 'B' || char === 'C' || char === 'M') {
+        const kind = char === 'H' ? TILE.HOUSE
+          : char === 'B' ? TILE.BARN
+            : char === 'C' ? TILE.COOP
+              : TILE.MARKET;
         const structureWidth = 2;
         const structureHeight = char === 'C' ? 1 : 2;
         const structure = { kind, x, y: y - (structureHeight - 1), width: structureWidth, height: structureHeight };
@@ -188,8 +215,11 @@ export function createWorld(level) {
     seeds: level.startSeeds ?? 6,
     straw: level.startStraw ?? 0,
     eggs: 0,
-    pendingEggs: 0,
-    fedChickens: 0,
+    pendingEggs: level.startPendingEggs ?? 0,
+    fedChickens: level.startFedChickens ?? 0,
+    fedCows: level.startFedCows ?? 0,
+    fedChickensTotal: 0,
+    fedCowsTotal: 0,
     milk: 0,
     tilled: 0,
     planted: 0,
@@ -244,6 +274,72 @@ export function countChickens(world) {
   return world.animals.filter((animal) => animal.kind === 'chicken').length;
 }
 
+/**
+ * 集市价目表：想调经济就改这里。
+ * 卖价略高于买价，孩子跑一圈才有赚头。
+ */
+export const MARKET_PRICES = {
+  sellEgg: 3,
+  sellMilk: 5,
+  sellWheat: 2,
+  seedCost: 3,
+  seedAmount: 2,
+  strawCost: 4,
+  strawAmount: 1,
+  chickenCost: 12,
+  cowCost: 20,
+};
+
+/** 新动物放在谁旁边：鸡找鸡舍，牛找同伴。 */
+function findAnimalSpot(world, kind) {
+  const anchors = kind === 'chicken'
+    ? (world.structures ?? []).filter((structure) => structure.kind === TILE.COOP)
+      .flatMap((coop) => {
+        const cells = [];
+        for (let yy = coop.y; yy < coop.y + coop.height; yy += 1) {
+          for (let xx = coop.x; xx < coop.x + coop.width; xx += 1) cells.push({ x: xx, y: yy });
+        }
+        return cells;
+      })
+    : world.animals.filter((animal) => animal.kind === 'cow').map((animal) => ({ x: animal.x, y: animal.y }));
+  if (anchors.length === 0) return null;
+
+  const candidates = [];
+  for (const anchor of anchors) {
+    for (const dir of DIRS) {
+      const x = anchor.x + dir.dx;
+      const y = anchor.y + dir.dy;
+      if (candidates.some((cell) => cell.x === x && cell.y === y)) continue;
+      candidates.push({ x, y });
+    }
+  }
+  return candidates.find((cell) => canWalk(world, cell.x, cell.y).ok) ?? null;
+}
+
+/** 小农夫是不是站在集市的上下左右相邻格。 */
+export function isNearMarket(world) {
+  const { x, y } = world.hero;
+  const markets = (world.structures ?? []).filter((structure) => structure.kind === TILE.MARKET);
+  return markets.some((market) => {
+    for (let yy = market.y; yy < market.y + market.height; yy += 1) {
+      for (let xx = market.x; xx < market.x + market.width; xx += 1) {
+        if (Math.abs(x - xx) + Math.abs(y - yy) === 1) return true;
+      }
+    }
+    return false;
+  });
+}
+
+/** 今天饿着的鸡 + 牛总数：判断稻草够不够。 */
+export function hungryAnimalCount(world) {
+  return countHungryChickens(world) + countHungryCows(world);
+}
+
+/** 稻草够不够喂饱今天饿着的动物（没有动物饿着也算够）。 */
+export function hasEnoughStraw(world) {
+  return (world.straw ?? 0) >= hungryAnimalCount(world);
+}
+
 /** 小农夫是不是站在鸡舍的上下左右相邻格。 */
 export function isNearCoop(world) {
   const { x, y } = world.hero;
@@ -256,6 +352,44 @@ export function isNearCoop(world) {
     }
     return false;
   });
+}
+
+/** 当前农场里有几头奶牛。 */
+export function countCows(world) {
+  return world.animals.filter((animal) => animal.kind === 'cow').length;
+}
+
+/** 小农夫上下左右相邻格子里的奶牛。 */
+export function cowsNear(world) {
+  const { x, y } = world.hero;
+  return world.animals.filter(
+    (animal) => animal.kind === 'cow' && Math.abs(animal.x - x) + Math.abs(animal.y - y) === 1,
+  );
+}
+
+/** 站在旁边、今天还没挤过奶的奶牛。 */
+export function readyCowsNear(world) {
+  return cowsNear(world).filter((cow) => cow.milkReady !== false);
+}
+
+/** 小农夫是不是站在奶牛旁边。 */
+export function isNearCow(world) {
+  return cowsNear(world).length > 0;
+}
+
+/** 站在旁边、今天还没喂过的奶牛。 */
+export function hungryCowsNear(world) {
+  return cowsNear(world).filter((cow) => cow.fedToday !== true);
+}
+
+/** 农场里今天还没喂过的奶牛。 */
+export function countHungryCows(world) {
+  return world.animals.filter((animal) => animal.kind === 'cow' && animal.fedToday !== true).length;
+}
+
+/** 农场里今天还没喂过的鸡。 */
+export function countHungryChickens(world) {
+  return world.animals.filter((animal) => animal.kind === 'chicken' && animal.fedToday !== true).length;
 }
 
 /** 判断某个格子能不能走进去。 */
@@ -380,39 +514,36 @@ export function applyAction(world, action) {
       world.wheat += 1;
       world.coins += 5;
       world.seeds += 2;
-      if (world.level.mode === 'free') world.straw += 1;
-      if (world.level.mode === 'free') {
-        return [{ kind: 'harvest', x, y }, say(world, '收获一捆小麦！+5 金币，+2 颗种子，+1 捆稻草')];
-      }
-      return [{ kind: 'harvest', x, y }, say(world, '收获一捆小麦！+5 金币，+2 颗种子')];
+      world.straw += 1;
+      return [
+        { kind: 'harvest', x, y, coins: 5 },
+        say(world, '收获一捆小麦！+5 金币，+2 颗种子，+1 捆稻草'),
+      ];
     }
     case '喂鸡': {
-      if (world.level.mode !== 'free') {
-        return [warn(world, '「喂鸡」要在通关后的自由农场里使用')];
-      }
       if (!isNearCoop(world)) {
         return [warn(world, '走到鸡舍旁边再喂鸡吧')];
       }
       const chickens = countChickens(world);
       if (chickens === 0) return [warn(world, '鸡舍里还没有鸡')];
-      const alreadyFed = Math.min(world.fedChickens ?? 0, chickens);
-      const hungry = chickens - alreadyFed;
-      if (hungry === 0) return [say(world, '今天的鸡已经喂饱了，等明天再来吧')];
-      if (world.straw < hungry) {
-        return [warn(world, `稻草不够，还缺 ${hungry - world.straw} 捆。收获小麦可以得到稻草`)];
+      const hungryBirds = world.animals.filter((animal) => animal.kind === 'chicken' && animal.fedToday !== true);
+      if (hungryBirds.length === 0) return [say(world, '今天的鸡已经喂饱了，等明天再来吧')];
+      if (world.straw < hungryBirds.length) {
+        return [warn(world, `稻草不够，还缺 ${hungryBirds.length - world.straw} 捆。收获小麦可以得到稻草`)];
       }
-      world.straw -= hungry;
-      world.fedChickens = chickens;
+      for (const bird of hungryBirds) {
+        bird.fedToday = true;
+        world.straw -= 1;
+      }
+      world.fedChickens = (world.fedChickens ?? 0) + hungryBirds.length;
+      world.fedChickensTotal = (world.fedChickensTotal ?? 0) + hungryBirds.length;
       const coop = world.structures.find((structure) => structure.kind === TILE.COOP);
       return [
-        { kind: 'feed', x: coop.x, y: coop.y, amount: hungry },
-        say(world, `喂饱了 ${hungry} 只鸡。等一天后到鸡舍旁收鸡蛋`),
+        { kind: 'feed', x: coop.x, y: coop.y, amount: hungryBirds.length },
+        say(world, `喂饱了 ${hungryBirds.length} 只鸡。等一天后到鸡舍旁收鸡蛋`),
       ];
     }
     case '收鸡蛋': {
-      if (world.level.mode !== 'free') {
-        return [warn(world, '「收鸡蛋」要在通关后的自由农场里使用')];
-      }
       if (!isNearCoop(world)) {
         return [warn(world, '走到鸡舍旁边再收鸡蛋吧')];
       }
@@ -426,6 +557,154 @@ export function applyAction(world, action) {
       return [
         { kind: 'collectEgg', x: coop.x, y: coop.y, amount },
         say(world, `收到 ${amount} 枚鸡蛋！`),
+      ];
+    }
+    case '挤奶': {
+      const ready = readyCowsNear(world);
+      if (ready.length === 0) {
+        if (cowsNear(world).length > 0) {
+          const hungry = hungryCowsNear(world).length;
+          if (hungry > 0) {
+            return [warn(world, '这头牛今天没奶。先喂它吃稻草，再等一天吧')];
+          }
+          return [say(world, '这头牛今天已经喂饱了，等一天就有新牛奶')];
+        }
+        return [warn(world, '走到奶牛旁边再挤奶吧')];
+      }
+      const events = [];
+      for (const cow of ready) {
+        cow.milkReady = false;
+        world.milk += 1;
+        events.push({ kind: 'milk', x: cow.x, y: cow.y, amount: 1 });
+      }
+      events.push(say(world, `挤了 ${ready.length} 瓶牛奶，装进奶罐里`));
+      return events;
+    }
+    case '喂牛': {
+      const hungry = hungryCowsNear(world);
+      if (hungry.length === 0) {
+        if (cowsNear(world).length > 0) {
+          return [say(world, '这几头牛今天已经喂饱了，等一天再看')];
+        }
+        return [warn(world, '走到奶牛旁边再喂牛吧')];
+      }
+      if (world.straw < hungry.length) {
+        return [warn(world, `稻草不够，还缺 ${hungry.length - world.straw} 捆。收获小麦可以得到稻草`)];
+      }
+      const events = [];
+      for (const cow of hungry) {
+        cow.fedToday = true;
+        world.straw -= 1;
+        world.fedCows = (world.fedCows ?? 0) + 1;
+        world.fedCowsTotal = (world.fedCowsTotal ?? 0) + 1;
+        events.push({ kind: 'feedCow', x: cow.x, y: cow.y, amount: 1 });
+      }
+      events.push(say(world, `喂饱了 ${hungry.length} 头牛。等一天后就能挤奶了`));
+      return events;
+    }
+    case '卖出': {
+      if (!isNearMarket(world)) {
+        return [warn(world, '走到集市旁边再卖东西吧')];
+      }
+      const eggs = world.eggs ?? 0;
+      const milk = world.milk ?? 0;
+      const wheat = world.wheat ?? 0;
+      if (eggs === 0 && milk === 0 && wheat === 0) {
+        return [warn(world, '背包里没有可以卖的东西，先去收鸡蛋、挤牛奶或收小麦')];
+      }
+      const coins = eggs * MARKET_PRICES.sellEgg
+        + milk * MARKET_PRICES.sellMilk
+        + wheat * MARKET_PRICES.sellWheat;
+      world.eggs = 0;
+      world.milk = 0;
+      world.wheat = 0;
+      world.coins += coins;
+      world.soldCoins = (world.soldCoins ?? 0) + coins;
+      const parts = [];
+      if (eggs > 0) parts.push(`${eggs} 枚鸡蛋`);
+      if (milk > 0) parts.push(`${milk} 瓶牛奶`);
+      if (wheat > 0) parts.push(`${wheat} 袋小麦`);
+      const market = world.structures.find((structure) => structure.kind === TILE.MARKET);
+      return [
+        { kind: 'sell', x: market.x, y: market.y, amount: coins },
+        say(world, `卖掉${parts.join('、')}，收到 ${coins} 金币`),
+      ];
+    }
+    case '买种子': {
+      if (!isNearMarket(world)) {
+        return [warn(world, '走到集市旁边再买种子吧')];
+      }
+      const cost = MARKET_PRICES.seedCost;
+      if (world.coins < cost) {
+        return [warn(world, `金币不够，买种子要 ${cost} 金币，还差 ${cost - world.coins}`)];
+      }
+      world.coins -= cost;
+      world.seeds += MARKET_PRICES.seedAmount;
+      const market = world.structures.find((structure) => structure.kind === TILE.MARKET);
+      return [
+        { kind: 'buy', x: market.x, y: market.y, amount: MARKET_PRICES.seedAmount, label: '种子' },
+        say(world, `花 ${cost} 金币买了 ${MARKET_PRICES.seedAmount} 颗种子`),
+      ];
+    }
+    case '买稻草': {
+      if (!isNearMarket(world)) {
+        return [warn(world, '走到集市旁边再买稻草吧')];
+      }
+      const cost = MARKET_PRICES.strawCost;
+      if (world.coins < cost) {
+        return [warn(world, `金币不够，买稻草要 ${cost} 金币，还差 ${cost - world.coins}`)];
+      }
+      world.coins -= cost;
+      world.straw += MARKET_PRICES.strawAmount;
+      const market = world.structures.find((structure) => structure.kind === TILE.MARKET);
+      return [
+        { kind: 'buy', x: market.x, y: market.y, amount: MARKET_PRICES.strawAmount, label: '稻草' },
+        say(world, `花 ${cost} 金币买了 ${MARKET_PRICES.strawAmount} 捆稻草`),
+      ];
+    }
+    case '买鸡': {
+      if (!isNearMarket(world)) {
+        return [warn(world, '走到集市旁边再买鸡吧')];
+      }
+      const cost = MARKET_PRICES.chickenCost;
+      if (world.coins < cost) {
+        return [warn(world, `金币不够，买鸡要 ${cost} 金币，还差 ${cost - world.coins}`)];
+      }
+      const spot = findAnimalSpot(world, 'chicken');
+      if (!spot) {
+        return [warn(world, '鸡舍旁边没有空地了，先把周围的活干完再来')];
+      }
+      world.coins -= cost;
+      world.animals.push({ kind: 'chicken', x: spot.x, y: spot.y, phase: (spot.x * 7 + spot.y * 13) % 100, fedToday: false });
+      const market = world.structures.find((structure) => structure.kind === TILE.MARKET);
+      return [
+        { kind: 'buy', x: market.x, y: market.y, amount: 1, label: '鸡' },
+        { kind: 'newAnimal', x: spot.x, y: spot.y, label: '新鸡' },
+        say(world, `花 ${cost} 金币买了一只鸡，现在有 ${countChickens(world)} 只`),
+      ];
+    }
+    case '买牛': {
+      if (!isNearMarket(world)) {
+        return [warn(world, '走到集市旁边再买牛吧')];
+      }
+      const cost = MARKET_PRICES.cowCost;
+      if (world.coins < cost) {
+        return [warn(world, `金币不够，买牛要 ${cost} 金币，还差 ${cost - world.coins}`)];
+      }
+      const spot = findAnimalSpot(world, 'cow');
+      if (!spot) {
+        return [warn(world, '奶牛周围没有空地了，先把周围的活干完再来')];
+      }
+      world.coins -= cost;
+      world.animals.push({
+        kind: 'cow', x: spot.x, y: spot.y, phase: (spot.x * 7 + spot.y * 13) % 100,
+        fedToday: false, milkReady: true,
+      });
+      const market = world.structures.find((structure) => structure.kind === TILE.MARKET);
+      return [
+        { kind: 'buy', x: market.x, y: market.y, amount: 1, label: '牛' },
+        { kind: 'newAnimal', x: spot.x, y: spot.y, label: '新牛' },
+        say(world, `花 ${cost} 金币买了一头牛，现在有 ${countCows(world)} 头`),
       ];
     }
     case '等待一天': {
@@ -452,24 +731,31 @@ export function advanceDay(world) {
   }
 
   world.day += 1;
+
+  // 喂饱的鸡在鸡舍里下蛋，攒着等小农夫来收；没喂的就空着。
   const chickens = countChickens(world);
-  const cows = world.animals.filter((animal) => animal.kind === 'cow').length;
-  if (world.level.mode === 'free') {
-    const fed = Math.min(world.fedChickens ?? 0, chickens);
-    if (fed > 0) {
-      world.pendingEggs += fed;
-      const coop = world.structures.find((structure) => structure.kind === TILE.COOP);
-      events.push({ kind: 'lay', x: coop?.x ?? world.hero.x, y: coop?.y ?? world.hero.y, amount: fed });
+  const fed = Math.min(world.fedChickens ?? 0, chickens);
+  if (fed > 0) {
+    world.pendingEggs += fed;
+    const coop = world.structures.find((structure) => structure.kind === TILE.COOP);
+    events.push({ kind: 'lay', x: coop?.x ?? world.hero.x, y: coop?.y ?? world.hero.y, amount: fed });
+  }
+  for (const animal of world.animals) {
+    if (animal.kind === 'chicken') animal.fedToday = false;
+  }
+  world.fedChickens = 0;
+
+  // 新的一天：昨天喂饱的牛才有新奶；饿着的牛继续没奶。
+  for (const animal of world.animals) {
+    if (animal.kind !== 'cow') continue;
+    if (animal.fedToday === true) {
+      animal.milkReady = true;
+      events.push({ kind: 'milkReady', x: animal.x, y: animal.y });
     }
-    world.fedChickens = 0;
-  } else if (chickens > 0) {
-    world.eggs += chickens;
-    events.push({ kind: 'collect', what: 'egg', amount: chickens });
+    animal.fedToday = false;
   }
-  if (world.level.mode !== 'free' && cows > 0) {
-    world.milk += cows;
-    events.push({ kind: 'collect', what: 'milk', amount: cows });
-  }
+  world.fedCows = 0;
+
   events.push({ kind: 'day' });
   events.push(say(world, `到了第 ${world.day} 天`));
   return events;
@@ -487,6 +773,21 @@ export function testCondition(world, condition) {
       return tile === TILE.SEEDLING;
     case '脚下是成熟小麦':
       return tile === TILE.WHEAT;
+    case '奶牛可以挤奶':
+      return readyCowsNear(world).length > 0;
+    case '鸡舍里有鸡蛋':
+      return isNearCoop(world) && (world.pendingEggs ?? 0) > 0;
+    case '稻草足够':
+      return hasEnoughStraw(world);
+    case '前方是成熟小麦': {
+      const dir = DIRS[world.hero.facing];
+      const front = tileAt(world, world.hero.x + dir.dx, world.hero.y + dir.dy);
+      return front === TILE.WHEAT;
+    }
+    case '到旗子了':
+      return Boolean(world.goalPos
+        && world.hero.x === world.goalPos.x
+        && world.hero.y === world.goalPos.y);
     default:
       throw new WorldError(`不认识的条件「${condition}」`);
   }
@@ -524,6 +825,28 @@ export function checkGoal(world) {
     const ok = world.milk >= goal.milk;
     done = done && ok;
     parts.push(`牛奶 ${Math.min(world.milk, goal.milk)}/${goal.milk}`);
+  }
+  if (goal.sold !== undefined) {
+    const ok = (world.soldCoins ?? 0) >= goal.sold;
+    done = done && ok;
+    parts.push(`卖出得金币 ${Math.min(world.soldCoins ?? 0, goal.sold)}/${goal.sold}`);
+  }
+  if (goal.coins !== undefined) {
+    const ok = world.coins >= goal.coins;
+    done = done && ok;
+    parts.push(`金币 ${Math.min(world.coins, goal.coins)}/${goal.coins}`);
+  }
+  if (goal.feedCow !== undefined) {
+    const fed = world.fedCowsTotal ?? 0;
+    const ok = fed >= goal.feedCow;
+    done = done && ok;
+    parts.push(`喂饱牛 ${Math.min(fed, goal.feedCow)}/${goal.feedCow}`);
+  }
+  if (goal.feed !== undefined) {
+    const fed = world.fedChickensTotal ?? 0;
+    const ok = fed >= goal.feed;
+    done = done && ok;
+    parts.push(`喂饱鸡 ${Math.min(fed, goal.feed)}/${goal.feed}`);
   }
   if (goal.till !== undefined) {
     const ok = world.tilled >= goal.till;
@@ -566,7 +889,8 @@ export function countTile(world, tile) {
 
 const SNAPSHOT_NUMBERS = [
   'day', 'coins', 'wheat', 'seeds', 'straw', 'eggs', 'pendingEggs',
-  'fedChickens', 'milk', 'tilled', 'planted', 'harvested', 'watered',
+  'fedChickens', 'fedCows', 'fedChickensTotal', 'fedCowsTotal', 'soldCoins',
+  'milk', 'tilled', 'planted', 'harvested', 'watered',
 ];
 
 /** 把自由农场转成可以放进 localStorage 的普通数据。 */

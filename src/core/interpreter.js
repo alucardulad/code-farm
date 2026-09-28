@@ -9,9 +9,13 @@
  * 支持的写法（一行一条，分号可有可无）：
  *   前进 3          后退 2        左转        右转
  *   翻土            播种          浇水        收获
- *   喂鸡            收鸡蛋
+ *   喂鸡            收鸡蛋        喂牛        挤奶
+ *   卖出            买种子        买稻草
  *   重复 3 次 { ... }
+ *   重复直到 前方是成熟小麦 { ... }      条件不成立就一直做，成立就停
  *   如果 脚下是草地 { ... }
+ *   如果 奶牛可以挤奶 { ... }    如果 鸡舍里有鸡蛋 { ... }
+ *   如果 脚下是成熟小麦 { ... } 否则 { ... }
  */
 
 export class CodeError extends Error {
@@ -24,10 +28,25 @@ export class CodeError extends Error {
 }
 
 /** 所有可以直接使用的动作指令。 */
-export const ACTIONS = ['前进', '后退', '左转', '右转', '翻土', '播种', '浇水', '收获', '等待一天', '喂鸡', '收鸡蛋'];
+export const ACTIONS = [
+  '前进', '后退', '左转', '右转', '翻土', '播种', '浇水', '收获', '等待一天',
+  '喂鸡', '收鸡蛋', '喂牛', '挤奶',
+  '卖出', '买种子', '买稻草', '买鸡', '买牛',
+];
 
 /** 判断语句里可以使用的条件。 */
-export const CONDITIONS = ['脚下是草地', '脚下是泥土', '脚下有幼苗', '脚下是成熟小麦'];
+export const CONDITIONS = [
+  '脚下是草地', '脚下是泥土', '脚下有幼苗', '脚下是成熟小麦',
+  '奶牛可以挤奶', '鸡舍里有鸡蛋', '稻草足够',
+  '前方是成熟小麦', '到旗子了',
+];
+
+/**
+ * 「重复直到」单条最多跑多少遍。
+ * 条件写反了就会一直转下去，孩子看不出来，所以必须有个上限兜住，
+ * 超了就告诉他条件一直没成立，而不是让浏览器卡死。
+ */
+export const MAX_UNTIL = 100;
 
 /** 每关最多执行的语句数，兜住「重复 50 次」这类写法。 */
 export const DEFAULT_MAX_STEPS = 600;
@@ -115,7 +134,17 @@ function parseBlock(tokens, start) {
         throw new CodeError('大括号没有关上', line, '数一数「{」和「}」，在最后补一个「}」。');
       }
       i = inner.pos;
-      body.push(makeControlNode(parts, line, inner.body));
+      const node = makeControlNode(parts, line, inner.body);
+      if (node.kind === 'else') {
+        // 「否则」不单独成句，挂在前面那个「如果」上。
+        const prev = body[body.length - 1];
+        if (!prev || prev.kind !== 'if' || prev.altBody) {
+          throw new CodeError('「否则」要跟在「如果」后面', line, '先写「如果 ... { ... }」，再写「否则 { ... }」。');
+        }
+        prev.altBody = inner.body;
+      } else {
+        body.push(node);
+      }
     } else {
       if (parts.length === 0) {
         // 只可能是孤立的大括号，上面已经拦过；这里兜底。
@@ -132,6 +161,13 @@ function parseBlock(tokens, start) {
 function makeControlNode(parts, line, body) {
   const head = parts[0].value;
 
+  if (head === '否则') {
+    if (parts.length > 1) {
+      throw new CodeError('「否则」后面不用写别的', line, '直接写「否则 {」，把另一条路写在里面。');
+    }
+    return { kind: 'else', line, body };
+  }
+
   if (head === '重复') {
     const count = parts.find((part) => part.type === 'number');
     if (!count) {
@@ -146,11 +182,17 @@ function makeControlNode(parts, line, body) {
     return { kind: 'repeat', times: count.value, line, body };
   }
 
-  if (head === '如果') {
+  if (head === '如果' || head === '重复直到') {
     const condition = parts
       .slice(1)
       .map((part) => String(part.value))
       .join('');
+    if (head === '如果' && parts.length === 1) {
+      throw new CodeError('「如果」后面要写条件', line, '比如：如果 脚下是草地 {');
+    }
+    if (head === '重复直到' && parts.length === 1) {
+      throw new CodeError('「重复直到」后面要写条件', line, '比如：重复直到 前方是成熟小麦 {');
+    }
     if (!CONDITIONS.includes(condition)) {
       throw new CodeError(
         `不认识这个条件「${condition || '（空的）'}」`,
@@ -158,10 +200,14 @@ function makeControlNode(parts, line, body) {
         `可以写：${CONDITIONS.join('、')}`,
       );
     }
-    return { kind: 'if', condition, line, body };
+    return { kind: head === '如果' ? 'if' : 'until', condition, line, body };
   }
 
-  throw new CodeError(`「${head}」后面跟了一个「{」`, line, '只有「重复」和「如果」需要大括号。');
+  throw new CodeError(
+    `「${head}」后面跟了一个「{」`,
+    line,
+    '只有「重复」「重复直到」和「如果」需要大括号。',
+  );
 }
 
 function makeActionNode(parts, line) {
@@ -238,6 +284,31 @@ async function runBody(body, api, state, maxSteps) {
     } else if (node.kind === 'if') {
       state.steps += 1;
       if (api.test(node.condition)) {
+        await runBody(node.body, api, state, maxSteps);
+      } else if (node.altBody) {
+        await runBody(node.altBody, api, state, maxSteps);
+      }
+    } else if (node.kind === 'until') {
+      // 先看条件：成立就一次都不做；不成立就做一遍，再看一次。
+      let rounds = 0;
+      while (!api.test(node.condition)) {
+        if (rounds >= MAX_UNTIL) {
+          throw new CodeError(
+            `「重复直到」跑了 ${MAX_UNTIL} 遍，条件还是一直没成立`,
+            node.line,
+            '检查条件是不是写反了，或者先在循环外面手动做一步。',
+          );
+        }
+        rounds += 1;
+        state.steps += 1;
+        if (state.steps >= maxSteps) {
+          throw new CodeError(
+            `代码跑了 ${maxSteps} 步还没结束`,
+            node.line,
+            '检查一下循环次数是不是写得太多了。',
+          );
+        }
+        api.setActiveLine?.(node.line);
         await runBody(node.body, api, state, maxSteps);
       }
     }
