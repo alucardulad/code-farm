@@ -17,6 +17,7 @@ import { loadSprites } from '../core/sprites.js';
 import { TUTOR_NAME, CHAPTER_INTRO, getTutorLine, hintVoiceKey } from '../core/tutor-lines.js';
 import { createEditor } from './editor.js';
 import { MUSIC_CREDITS, SFX_CREDITS, FREESOUND_URL } from '../core/credits.js';
+import { ABOUT } from '../core/about.js';
 
 const STORAGE_KEY = 'code-farm-progress-v1';
 
@@ -69,6 +70,7 @@ export function mountApp(root) {
       <div class="brand"><span class="logo">🌾</span>麦田小课堂</div>
       <div class="level-chip" id="levelChip">第 1 关</div>
       <div class="player-chip" id="playerChip">👦 小农夫</div>
+      <button class="icon-btn about-entry" id="aboutBtn" title="关于麦田小课堂与赞赏支持">❤️ 关于</button>
       <div class="resources" id="resources"></div>
       <button class="icon-btn" id="modeBtn" title="切换教学模式和自由模式">🧭 模式</button>
       <button class="icon-btn" id="heroBtn" title="切换小农夫形象">👦 男孩</button>
@@ -143,6 +145,7 @@ export function mountApp(root) {
             <span>🐄 牧牛</span>
           </div>
           <button class="btn primary onboarding-primary" id="openingStartBtn" type="button">开始旅程 ▶</button>
+          <button class="about-link opening-about-btn" id="openingAboutBtn" type="button">❤️ 关于与赞赏</button>
           <p class="onboarding-tip">下一站：创建你的小农夫</p>
         </div>
 
@@ -195,6 +198,13 @@ export function mountApp(root) {
               <span class="mode-foot">种植 · 喂鸡喂牛 · 收蛋挤奶 · 建议先玩完第 1 关再来</span>
             </button>
           </div>
+          <div class="mode-support">
+            <div class="mode-support-copy">
+              <strong>喜欢这个小游戏？</strong>
+              <span>看看开发说明，也可以扫码赞赏支持</span>
+            </div>
+            <button class="about-link" id="modeAboutBtn" type="button">❤️ 关于与赞赏</button>
+          </div>
           <button class="profile-edit-btn" id="editProfileBtn" type="button">👦👧 修改角色和姓名</button>
         </div>
       </section>
@@ -225,6 +235,9 @@ export function mountApp(root) {
     heroBtn: root.querySelector('#heroBtn'),
     musicBtn: root.querySelector('#musicBtn'),
     creditBtn: root.querySelector('#creditBtn'),
+    aboutBtn: root.querySelector('#aboutBtn'),
+    openingAboutBtn: root.querySelector('#openingAboutBtn'),
+    modeAboutBtn: root.querySelector('#modeAboutBtn'),
     modeGate: root.querySelector('#modeGate'),
     teachModeBtn: root.querySelector('#teachModeBtn'),
     freeModeBtn: root.querySelector('#freeModeBtn'),
@@ -1188,6 +1201,13 @@ export function mountApp(root) {
     showCreditsModal();
   });
 
+  for (const button of [els.aboutBtn, els.openingAboutBtn, els.modeAboutBtn]) {
+    button.addEventListener('click', () => {
+      SOUND.play('click');
+      showAboutModal();
+    });
+  }
+
   els.musicBtn.addEventListener('click', () => {
     const on = SOUND.toggleMusic();
     els.musicBtn.textContent = on ? '🎵 音乐' : '🔇 音乐';
@@ -1265,6 +1285,71 @@ export function mountApp(root) {
     speakTutor(state.voiceKey ?? level().id);
   });
 
+  /** 关于页：主界面和开篇流程共用，包含项目说明、联系方式与赞赏码。 */
+  function showAboutModal() {
+    const existing = document.querySelector('.about-modal-mask');
+    if (existing) {
+      existing.querySelector('#aboutOk')?.focus();
+      return;
+    }
+
+    const escapeHtml = (text) => text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const paragraphs = ABOUT.paragraphs
+      .map((text, index) => `<p${index === 0 ? ' class="about-highlight"' : ''}>${escapeHtml(text)}</p>`)
+      .join('');
+
+    const mask = document.createElement('div');
+    mask.className = 'modal-mask about-modal-mask';
+    mask.innerHTML = `
+      <div class="modal about-modal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+        <div class="about-head">
+          <div>
+            <p class="about-kicker">🌾 麦田小课堂</p>
+            <h2 id="aboutTitle">${escapeHtml(ABOUT.title)}</h2>
+            <p class="about-sub">${escapeHtml(ABOUT.subtitle)}</p>
+          </div>
+          <button class="about-close" id="closeAbout" type="button" aria-label="关闭关于">✕</button>
+        </div>
+        <div class="about-scroll">
+          <div class="about-layout">
+            <div class="about-main">
+              <div class="about-body">${paragraphs}</div>
+              <div class="about-meta">
+                <div>开发者：<b>${escapeHtml(ABOUT.developer)}</b></div>
+                <div>邮箱：<a href="mailto:${escapeHtml(ABOUT.email)}">${escapeHtml(ABOUT.email)}</a></div>
+              </div>
+            </div>
+            <div class="about-donate">
+              <div class="about-donate-title">${escapeHtml(ABOUT.donateTitle)}</div>
+              <p>${escapeHtml(ABOUT.donateNote)}</p>
+              <img src="${ABOUT.qrImage}" alt="${escapeHtml(ABOUT.donateTitle)}">
+            </div>
+          </div>
+        </div>
+        <button class="btn primary about-ok" id="aboutOk" type="button">知道啦</button>
+      </div>
+    `;
+    document.body.appendChild(mask);
+
+    const close = () => {
+      mask.remove();
+      document.removeEventListener('keydown', onKeydown);
+    };
+    const onKeydown = (event) => {
+      if (event.key === 'Escape') close();
+    };
+
+    mask.querySelector('#closeAbout').addEventListener('click', close);
+    mask.querySelector('#aboutOk').addEventListener('click', close);
+    mask.addEventListener('click', (event) => {
+      if (event.target === mask) close();
+    });
+    document.addEventListener('keydown', onKeydown);
+  }
+
   function showCreditsModal() {
     const music = MUSIC_CREDITS.map((item) => `
       <li>
@@ -1315,6 +1400,7 @@ export function mountApp(root) {
     showProfile,
     showModeGate,
     chooseMode,
+    showAboutModal,
   };
 
   // 先在后台恢复上次模式，再从游戏开篇进入角色创建和模式选择。

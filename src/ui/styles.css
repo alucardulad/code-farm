@@ -1327,6 +1327,14 @@ canvas {
 }
 
 @media (max-width: 1180px) {
+  /* 顶栏在窄屏会横向滚动，把「关于」钉在最右侧，正式内容里不用翻找。 */
+  #aboutBtn {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    box-shadow: -8px 0 10px rgba(90, 55, 20, 0.32), 0 2px 0 rgba(70, 40, 15, 0.4);
+  }
+
   .chapter-tab .ct-meta { display: none; }
   .chapter-tab { padding: 6px 10px; }
   .levelbar { gap: 8px; }
@@ -1486,3 +1494,297 @@ canvas {
 .credit-scroll ul { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.65; color: var(--ink-soft); }
 .credit-scroll li { margin-bottom: 6px; }
 .credit-scroll a { color: #2f6b8f; }
+
+/* 关于与赞赏 */
+.about-entry {
+  background: linear-gradient(180deg, #fff0ad, #efbf45);
+  border-color: #93610f;
+  color: #5b3807;
+}
+
+.about-entry:hover,
+.about-entry:focus-visible {
+  filter: brightness(1.05);
+  outline: 3px solid rgba(255, 236, 150, 0.64);
+  outline-offset: 2px;
+}
+
+.about-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 2px solid var(--wood-1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.56);
+  color: #8d3d2e;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 3px 0 rgba(70, 45, 22, 0.22);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.about-link:hover,
+.about-link:focus-visible {
+  transform: translateY(-1px);
+  background: #fff8dc;
+  box-shadow: 0 5px 0 rgba(70, 45, 22, 0.2), 0 0 0 3px rgba(240, 195, 74, 0.28);
+  outline: none;
+}
+
+.about-link:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 0 rgba(70, 45, 22, 0.2);
+}
+
+.opening-about-btn {
+  display: flex;
+  margin: 14px auto 0;
+}
+
+.mode-support {
+  max-width: 640px;
+  margin: 18px auto 2px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 3px dashed rgba(107, 67, 34, 0.34);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.46);
+  text-align: left;
+}
+
+.mode-support-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mode-support-copy strong {
+  color: var(--wood-1);
+  font-size: 14px;
+}
+
+.mode-support-copy span {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.about-modal-mask {
+  z-index: 200;
+  padding: 18px;
+}
+
+.about-modal {
+  width: min(820px, 94vw);
+  max-height: min(88vh, 760px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+}
+
+/* 普通弹窗让内容按自身高度撑开，这里要改成「头/脚固定、中间滚动」，
+   否则长文和赞赏码在小屏上会被父容器的 overflow 裁掉。 */
+.about-head,
+.about-ok {
+  flex-shrink: 0;
+}
+
+.about-scroll {
+  flex: 1 1 auto;
+}
+
+.about-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 20px 22px 12px;
+  border-bottom: 2px dashed rgba(120, 80, 40, 0.28);
+}
+
+.about-modal .about-kicker {
+  margin: 0 0 3px;
+  color: var(--green-3);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.about-head h2 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.about-modal .about-sub {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.about-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(107, 67, 34, 0.34);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--wood-2);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.about-close:hover,
+.about-close:focus-visible {
+  background: #fff8dc;
+  border-color: var(--wood-1);
+  outline: none;
+}
+
+.about-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 22px 4px;
+}
+
+.about-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  align-items: start;
+  gap: 22px;
+}
+
+.about-main {
+  min-width: 0;
+}
+
+.about-body {
+  color: #4e3923;
+  font-size: 14px;
+  line-height: 1.85;
+}
+
+.about-body p {
+  margin: 0 0 12px;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.about-body p:last-child {
+  margin-bottom: 0;
+}
+
+.about-body .about-highlight {
+  color: var(--green-3);
+  font-weight: 900;
+}
+
+.about-meta {
+  margin-top: 10px;
+  padding: 14px 0;
+  border-top: 2px dashed rgba(120, 80, 40, 0.28);
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 2;
+}
+
+.about-meta b {
+  color: var(--wood-1);
+}
+
+.about-meta a {
+  color: #2f6b8f;
+  overflow-wrap: anywhere;
+}
+
+.about-donate {
+  position: sticky;
+  top: 0;
+  padding: 14px 14px 12px;
+  border: 3px dashed rgba(120, 80, 40, 0.38);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.42);
+  text-align: center;
+}
+
+.about-donate-title {
+  color: var(--wood-1);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.about-donate p {
+  margin: 3px 0 12px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.about-donate img {
+  display: block;
+  width: min(246px, 72vw);
+  height: auto;
+  margin: 0 auto 8px;
+  border: 3px solid var(--wood-1);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 5px 0 rgba(70, 45, 22, 0.18);
+}
+
+.about-ok {
+  flex: none;
+  margin: 14px 22px 20px;
+  box-shadow: 0 -8px 12px rgba(107, 67, 34, 0.08), 0 3px 0 rgba(47, 107, 40, 0.32);
+}
+
+@media (max-width: 620px) {
+  .mode-support {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .about-modal-mask {
+    padding: 10px;
+  }
+
+  .about-modal {
+    width: min(94vw, 560px);
+    max-height: 92vh;
+  }
+
+  .about-head,
+  .about-scroll {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .about-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .about-donate {
+    order: -1;
+    position: static;
+    align-self: stretch;
+  }
+
+  .about-donate img {
+    width: min(230px, 66vw);
+  }
+
+  .about-ok {
+    margin-left: 16px;
+    margin-right: 16px;
+    margin-bottom: 14px;
+  }
+}
