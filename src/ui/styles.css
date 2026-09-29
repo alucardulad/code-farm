@@ -288,10 +288,15 @@ button {
 /* ---------------------------------------------------------------- 指令面板 */
 
 .palette {
+  display: flex;
+  flex-direction: column;
+  /* 指令口袋只占一块固定高度，多出来的指令自己在里面滚，不把按钮顶出去。 */
+  min-height: 108px;
+  max-height: min(46vh, 400px);
   padding: 10px 12px;
   background: linear-gradient(180deg, var(--cream-2), var(--cream-3));
   border-top: 2px solid rgba(255, 255, 255, 0.45);
-  overflow: visible;
+  overflow: hidden;
 }
 
 .palette-title {
@@ -315,8 +320,22 @@ button {
 .chips {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 7px;
+  /* 滚动发生在指令区内部，运行 / 重置 / 提示始终留在底部。 */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
 }
+.chips::-webkit-scrollbar { width: 8px; }
+.chips::-webkit-scrollbar-track { background: transparent; }
+.chips::-webkit-scrollbar-thumb {
+  background: rgba(107, 67, 34, 0.35);
+  border-radius: 999px;
+}
+.chips { scrollbar-width: thin; }
 
 .chip {
   display: flex;
@@ -389,6 +408,9 @@ button {
   background: linear-gradient(180deg, var(--cream-1), var(--cream-2));
   border-top: 3px solid var(--wood-1);
   flex-wrap: wrap;
+  /* 固定在最下面，指令口袋怎么滚都不影响这几个按钮。 */
+  flex: none;
+  box-shadow: 0 -7px 12px -9px rgba(70, 45, 20, 0.55);
 }
 
 .btn {
@@ -1298,6 +1320,12 @@ canvas {
 }
 
 /* 小屏适配 */
+@media (max-height: 700px) {
+  /* 屏幕矮的时候再让一点位置出来：编辑器矮一点、指令区矮一点，按钮必须留在屏幕里。 */
+  .code-panel { grid-template-rows: auto minmax(110px, 1fr) minmax(64px, auto) auto; }
+  .palette { max-height: 24vh; min-height: 64px; }
+}
+
 @media (max-width: 1180px) {
   .chapter-tab .ct-meta { display: none; }
   .chapter-tab { padding: 6px 10px; }
@@ -1307,9 +1335,12 @@ canvas {
 @media (max-width: 940px) {
   .main {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(280px, 46%) 1fr;
+    grid-template-rows: minmax(300px, 46%) 1fr;
     overflow: auto;
   }
+  /* 窄屏也让整屏放得下：编辑器可以矮一点，指令区更矮，但滚动条在里面。 */
+  .code-panel { grid-template-rows: auto minmax(96px, 1fr) minmax(64px, auto) auto; }
+  .palette { max-height: 22vh; min-height: 64px; }
   .task-card { width: min(260px, 60%); }
   .tutor-dock { width: min(620px, calc(100% - 20px)); gap: 6px; }
   .tutor-avatar-wrap,
