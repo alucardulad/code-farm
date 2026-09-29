@@ -17,6 +17,10 @@
 不用装 Node、不用起服务器、不用联网，精灵图和丰收仙女的语音都打包在这一个文件里。
 手机上也能直接打开，见下一节。
 
+> 国内访问 GitHub 慢的话，走 Gitee 镜像：
+> **代码** <https://gitee.com/alucardulad/code-farm> ·
+> **下载** <https://gitee.com/alucardulad/code-farm/releases/download/v2.0.0/code-farm-v2.0.0.html>
+
 ---
 
 ## 📱 手机上也能玩
