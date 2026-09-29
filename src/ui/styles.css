@@ -319,7 +319,12 @@ button {
 }
 
 .chip {
-  padding: 7px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  max-width: 200px;
+  padding: 6px 11px;
   border-radius: 9px;
   border: 2px solid var(--wood-2);
   background: linear-gradient(180deg, #fff6dd, var(--cream-2));
@@ -350,6 +355,24 @@ button {
   opacity: 0.4;
   cursor: not-allowed;
   filter: grayscale(0.7);
+}
+.chip-desc {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink-soft);
+  white-space: normal;
+  text-align: left;
+}
+.chip.new .chip-desc { color: #2f5c25; }
+
+/* 第一次进第 1 关时，把「▶ 运行」闪一闪，告诉孩子先点这里。 */
+.btn.attract {
+  animation: attract 1.3s ease-in-out infinite;
+}
+@keyframes attract {
+  0%, 100% { transform: translateY(0) scale(1); box-shadow: 0 3px 0 rgba(30, 80, 35, 0.55); }
+  50% { transform: translateY(-2px) scale(1.05); box-shadow: 0 6px 0 rgba(30, 80, 35, 0.5), 0 0 0 6px rgba(111, 208, 106, 0.35); }
 }
 
 @keyframes glow {
@@ -1121,6 +1144,12 @@ canvas {
   background: rgba(255, 255, 255, 0.62);
 }
 
+.mode-badge.recommend {
+  margin-left: 0;
+  color: #6a3b06;
+  background: linear-gradient(180deg, #ffd979, #f0b429);
+}
+
 .mode-badge {
   margin-left: auto;
   padding: 3px 8px;
@@ -1159,6 +1188,35 @@ canvas {
 }
 
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+.chapter-intro .ci-kicker {
+  margin: 0 0 2px;
+  color: var(--green-3);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.chapter-intro h2 { margin: 2px 0 10px; }
+.chapter-intro .ci-body {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink);
+  text-align: left;
+}
+.chapter-intro .ci-sample {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  background: #fffdf3;
+  border: 3px dashed var(--wood-2);
+  border-radius: 10px;
+  color: var(--wood-1);
+  font-size: 14px;
+  font-weight: 800;
+  white-space: pre-wrap;
+  text-align: center;
+}
+.modal .actions { margin-top: 14px; }
 
 .modal {
   width: min(420px, 88vw);

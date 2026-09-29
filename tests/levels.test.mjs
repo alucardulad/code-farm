@@ -26,7 +26,7 @@ import {
 } from '../src/core/world.js';
 import { runProgram } from '../src/core/runner.js';
 import { paintFrame } from '../src/core/render.js';
-import { TUTOR_LINES, TUTOR_VOICE, tutorLineHashes } from '../src/core/tutor-lines.js';
+import { TUTOR_LINES, TUTOR_VOICE, CHAPTER_INTRO, tutorLineHashes } from '../src/core/tutor-lines.js';
 
 const VOICE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'assets', 'voice');
 const VOICE_MANIFEST = join(VOICE_DIR, 'voice-manifest.json');
@@ -892,6 +892,112 @@ check('损坏的自由农场存档会安全重建', () => {
   assert.equal(restored.height, FREE_MODE.map.length);
   assert.equal(countChickens(restored), 3);
   assert.equal(restored.day, 1);
+});
+
+// ------------------------------------------------------------ 引导文案一致性
+
+/** 关卡文案里可能出现的指令词，长的排前面，避免「重复直到」被「重复」抢先匹配。 */
+const CMD_TOKENS = [
+  '重复直到', '收鸡蛋', '等待一天', '稻草足够', '买稻草', '买种子', '买鸡', '买牛',
+  '前进', '后退', '左转', '右转', '翻土', '播种', '浇水', '收获',
+  '喂鸡', '喂牛', '挤奶', '卖出', '否则', '重复', '如果',
+];
+
+/** 每个指令第一次被教的关卡下标：{ 指令: 关卡下标 }。 */
+const commandIntro = new Map();
+LEVELS.forEach((level, index) => {
+  for (const command of level.newCommands ?? []) {
+    const token = CMD_TOKENS.find((candidate) => command.includes(candidate));
+    if (token && !commandIntro.has(token)) commandIntro.set(token, index);
+  }
+});
+
+check('关卡文案不会提前提到还没教过的指令', () => {
+  const bad = [];
+  LEVELS.forEach((level, index) => {
+    const text = [level.name, level.subtitle, level.objective, ...(level.hints ?? [])].join('\n');
+    for (const token of CMD_TOKENS) {
+      if (!text.includes(token)) continue;
+      const intro = commandIntro.get(token);
+      if (intro === undefined || intro > index) {
+        bad.push(`${level.id} 提到了还没教的「${token}」（第一次教在第 ${intro === undefined ? '？' : intro + 1} 关）`);
+      }
+    }
+  });
+  assert.equal(bad.length, 0, bad.join('\n'));
+});
+
+check('关卡文案提到的建筑和动物，地图上真的存在', () => {
+  const REQUIRED = [
+    { word: '小屋', chars: ['H'] },
+    { word: '集市', chars: ['M'] },
+    { word: '鸡舍', chars: ['C'] },
+    { word: '谷仓', chars: ['B'] },
+    { word: '水井', chars: ['W'] },
+    { word: '池塘', chars: ['~'] },
+    { word: '奶牛', chars: ['m', 'n'] },
+  ];
+  const bad = [];
+  for (const level of [...LEVELS, FREE_MODE]) {
+    const text = [level.name, level.subtitle, level.objective, ...(level.hints ?? [])].join('\n');
+    const mapText = level.map.join('');
+    for (const { word, chars } of REQUIRED) {
+      if (!text.includes(word)) continue;
+      if (!chars.some((char) => mapText.includes(char))) {
+        bad.push(`${level.id} 的文案提到「${word}」，但地图上没有`);
+      }
+    }
+  }
+  assert.equal(bad.length, 0, bad.join('\n'));
+});
+
+check('数格提示口径一致：从脚下开始数，走一步数 1', () => {
+  // 曾经写过「和旗子之间隔了几格」——那比实际步数少 1，孩子照着写就会差一格。
+  const AMBIGUOUS = ['隔了几格', '之间有几格空地', '隔的格数'];
+  const bad = [];
+  for (const level of LEVELS) {
+    const text = [level.objective, ...(level.hints ?? [])].join('\n');
+    for (const phrase of AMBIGUOUS) {
+      if (text.includes(phrase)) bad.push(`${level.id} 用了容易数错的说法「${phrase}」`);
+    }
+  }
+  assert.equal(bad.length, 0, bad.join('\n'));
+});
+
+check('单步移动关的步数等于地图上的真实距离', () => {
+  const HERO_CHARS = ['@', '$', '%', '&'];
+  const bad = [];
+  for (const level of LEVELS) {
+    const code = level.solution.replace(/(\/\/|#|＃).*$/gm, '').trim();
+    const single = code.match(/^(前进|后退)\s*(\d*)$/);
+    if (!single) continue;
+
+    let hero = null;
+    let goal = null;
+    level.map.forEach((row, y) => {
+      [...row].forEach((char, x) => {
+        if (HERO_CHARS.includes(char)) hero = { x, y };
+        if (char === 'G') goal = { x, y };
+      });
+    });
+    if (!hero || !goal) continue;
+
+    const steps = single[2] ? Number(single[2]) : 1;
+    const distance = Math.abs(hero.x - goal.x) + Math.abs(hero.y - goal.y);
+    const straight = hero.x === goal.x || hero.y === goal.y;
+    if (!straight) bad.push(`${level.id} 不是直线，却只写了一行移动`);
+    else if (steps !== distance) bad.push(`${level.id} 写了 ${single[1]} ${steps}，但地图上要走 ${distance} 格`);
+  }
+  assert.equal(bad.length, 0, bad.join('\n'));
+});
+
+check('每个章节都有章前小课堂文案', () => {
+  for (const chapter of CHAPTERS) {
+    const intro = CHAPTER_INTRO[chapter.id];
+    assert.ok(intro, `${chapter.id} 缺少章前小课堂`);
+    assert.ok(intro.title && intro.body && intro.sample, `${chapter.id} 的章前小课堂字段不完整`);
+    assert.ok(TUTOR_LINES[`chapter-${chapter.id}`]?.text, `${chapter.id} 缺少章前小课堂配音台词`);
+  }
 });
 
 // ------------------------------------------------------------ 结果

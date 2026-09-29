@@ -14,7 +14,7 @@ import { paintFrame } from '../core/render.js';
 import { FarmAnimator } from '../core/engine.js';
 import { AudioManager } from '../core/audio.js';
 import { loadSprites } from '../core/sprites.js';
-import { TUTOR_NAME, getTutorLine } from '../core/tutor-lines.js';
+import { TUTOR_NAME, CHAPTER_INTRO, getTutorLine } from '../core/tutor-lines.js';
 import { createEditor } from './editor.js';
 import { MUSIC_CREDITS, SFX_CREDITS, FREESOUND_URL } from '../core/credits.js';
 
@@ -22,37 +22,38 @@ const STORAGE_KEY = 'code-farm-progress-v1';
 
 /** 指令面板：按章节逐步解锁。 */
 const PALETTE = [
-  { chapter: 1, label: '前进 1', insert: '前进 1' },
-  { chapter: 1, label: '前进 N', insert: '前进 3' },
-  { chapter: 1, label: '后退 N', insert: '后退 1' },
-  { chapter: 1, label: '左转', insert: '左转' },
-  { chapter: 1, label: '右转', insert: '右转' },
-  { chapter: 1, label: '翻土', insert: '翻土' },
-  { chapter: 1, label: '播种', insert: '播种' },
-  { chapter: 1, label: '浇水', insert: '浇水' },
-  { chapter: 1, label: '等待一天', insert: '等待一天' },
-  { chapter: 1, label: '收获', insert: '收获' },
-  { chapter: 2, label: '重复 N 次 { }', insert: '重复 3 次 {\n  \n}' },
-  { chapter: 3, label: '如果 脚下是草地 { }', insert: '如果 脚下是草地 {\n  \n}' },
-  { chapter: 3, label: '如果 脚下是泥土 { }', insert: '如果 脚下是泥土 {\n  \n}' },
-  { chapter: 3, label: '如果 脚下有幼苗 { }', insert: '如果 脚下有幼苗 {\n  \n}' },
-  { chapter: 3, label: '如果 脚下是成熟小麦 { }', insert: '如果 脚下是成熟小麦 {\n  \n}' },
-  { chapter: 5, label: '如果 奶牛可以挤奶 { }', insert: '如果 奶牛可以挤奶 {\n  \n}' },
-  { chapter: 5, label: '如果 鸡舍里有鸡蛋 { }', insert: '如果 鸡舍里有鸡蛋 {\n  \n}' },
-  { chapter: 7, label: '如果 稻草足够 { }', insert: '如果 稻草足够 {\n  \n}' },
-  { chapter: 8, label: '重复直到…{ }', insert: '重复直到 前方是成熟小麦 {\n  \n}' },
-  { chapter: 8, label: '重复直到 到旗子了', insert: '重复直到 到旗子了 {\n  前进\n}' },
-  { chapter: 7, label: '卖出', insert: '卖出' },
-  { chapter: 7, label: '买种子', insert: '买种子' },
-  { chapter: 7, label: '买稻草', insert: '买稻草' },
-  { chapter: 7, label: '买鸡', insert: '买鸡' },
-  { chapter: 7, label: '买牛', insert: '买牛' },
-  { chapter: 6, label: '否则 { }', insert: '否则 {\n  \n}' },
-  { chapter: 6, label: '如果…否则… 模板', insert: '如果 脚下是成熟小麦 {\n  收获\n}\n否则 {\n  翻土\n}' },
-  { chapter: 4, label: '喂鸡', insert: '喂鸡' },
-  { chapter: 4, label: '收鸡蛋', insert: '收鸡蛋' },
-  { chapter: 4, label: '喂牛', insert: '喂牛' },
-  { chapter: 4, label: '挤奶', insert: '挤奶' },
+  { chapter: 1, label: '前进 1', insert: '前进 1', desc: '往前走 1 格' },
+  { chapter: 1, label: '前进 N', insert: '前进 3', desc: '往前走 N 格，把 N 换成要走的格数' },
+  { chapter: 1, label: '后退 N', insert: '后退 1', desc: '往身后退 N 格，不用转身' },
+  { chapter: 1, label: '左转', insert: '左转', desc: '向左转身，换个方向' },
+  { chapter: 1, label: '右转', insert: '右转', desc: '向右转身，换个方向' },
+  { chapter: 1, label: '翻土', insert: '翻土', desc: '把脚下的草地翻成松土' },
+  { chapter: 1, label: '播种', insert: '播种', desc: '在脚下的松土上撒种子' },
+  { chapter: 1, label: '浇水', insert: '浇水', desc: '给脚下的幼苗浇水' },
+  { chapter: 1, label: '等待一天', insert: '等待一天', desc: '农田过一天：浇过水的幼苗长大，喂饱的动物下蛋产奶' },
+  { chapter: 1, label: '收获', insert: '收获', desc: '收下脚下的成熟小麦' },
+  { chapter: 2, label: '重复 N 次 { }', insert: '重复 3 次 {\n  \n}', desc: '把大括号里的事重复做 N 遍' },
+  { chapter: 3, label: '如果 脚下是草地 { }', insert: '如果 脚下是草地 {\n  \n}', desc: '脚下是草地时，才做括号里的事' },
+  { chapter: 3, label: '如果 脚下是泥土 { }', insert: '如果 脚下是泥土 {\n  \n}', desc: '脚下是翻好的土时，才做括号里的事' },
+  { chapter: 3, label: '如果 脚下有幼苗 { }', insert: '如果 脚下有幼苗 {\n  \n}', desc: '脚下有幼苗时，才做括号里的事' },
+  { chapter: 3, label: '如果 脚下是成熟小麦 { }', insert: '如果 脚下是成熟小麦 {\n  \n}', desc: '脚下是熟麦时，才做括号里的事' },
+  { chapter: 5, label: '如果 奶牛可以挤奶 { }', insert: '如果 奶牛可以挤奶 {\n  \n}', desc: '身边的牛今天有奶时，才做括号里的事' },
+  { chapter: 5, label: '如果 鸡舍里有鸡蛋 { }', insert: '如果 鸡舍里有鸡蛋 {\n  \n}', desc: '鸡舍里有蛋时，才做括号里的事' },
+  { chapter: 7, label: '如果 稻草足够 { }', insert: '如果 稻草足够 {\n  \n}', desc: '稻草够喂饱所有饿着的动物时，才做括号里的事' },
+  { chapter: 8, label: '重复直到…{ }', insert: '重复直到 前方是成熟小麦 {\n  \n}', desc: '一直做，直到条件成立才停' },
+  { chapter: 8, label: '重复直到 到旗子了', insert: '重复直到 到旗子了 {\n  前进\n}', desc: '一直走，走到旗子就停' },
+  { chapter: 7, label: '卖出', insert: '卖出', desc: '在集市旁把鸡蛋、牛奶、小麦换成金币' },
+  { chapter: 7, label: '买种子', insert: '买种子', desc: '在集市旁花 3 金币买 2 颗种子' },
+  { chapter: 7, label: '买稻草', insert: '买稻草', desc: '在集市旁花 4 金币买 1 捆稻草' },
+  { chapter: 6, label: '否则 { }', insert: '否则 {\n  \n}', desc: '「如果」的条件不成立时，改做括号里的事' },
+  { chapter: 6, label: '如果…否则… 模板', insert: '如果 脚下是成熟小麦 {\n  收获\n}\n否则 {\n  翻土\n}', desc: '两选一：熟麦就收，否则翻土' },
+  { chapter: 4, label: '喂鸡', insert: '喂鸡', desc: '在鸡舍旁用稻草喂饱鸡' },
+  { chapter: 4, label: '收鸡蛋', insert: '收鸡蛋', desc: '在鸡舍旁把鸡蛋收进背包' },
+  { chapter: 4, label: '喂牛', insert: '喂牛', desc: '在奶牛旁用稻草喂饱奶牛' },
+  { chapter: 4, label: '挤奶', insert: '挤奶', desc: '在奶牛旁挤牛奶' },
+  // 扩大规模的两条只在自由农场出现：44 关课程里没有一关用到，不放进教学模式。
+  { chapter: 7, label: '买鸡', insert: '买鸡', desc: '在集市旁花 12 金币买 1 只鸡', freeOnly: true },
+  { chapter: 7, label: '买牛', insert: '买牛', desc: '在集市旁花 20 金币买 1 头奶牛', freeOnly: true },
 ];
 
 const SOUND = new AudioManager();
@@ -90,7 +91,7 @@ export function mountApp(root) {
           <button class="btn primary" id="runBtn">▶ 运行</button>
           <button class="btn ghost" id="resetBtn">↺ 重置</button>
           <button class="btn ghost" id="hintBtn">? 提示</button>
-          <button class="btn ghost" id="answerBtn">看答案</button>
+          <button class="btn ghost" id="answerBtn">看答案（先自己试 2 次）</button>
         </div>
       </section>
 
@@ -179,9 +180,10 @@ export function mountApp(root) {
                 <span class="mode-icon">📚</span>
                 <strong>教学模式</strong>
                 <span class="mode-badge" id="teachLastBadge" hidden>上次选择</span>
+                <span class="mode-badge recommend">推荐第一次玩</span>
               </span>
               <span class="mode-description" id="teachModeDesc">从第 1 关开始学习中文代码</span>
-              <span class="mode-foot">32 关 · 顺序 / 重复 / 判断 / 牧场</span>
+              <span class="mode-foot">44 关 8 章 · 顺序 · 重复 · 判断 · 牧场 · 经营 · 集市 · 自动农活</span>
             </button>
             <button class="mode-card free-mode" id="freeModeBtn" type="button">
               <span class="mode-card-head">
@@ -190,7 +192,7 @@ export function mountApp(root) {
                 <span class="mode-badge" id="freeLastBadge" hidden>上次选择</span>
               </span>
               <span class="mode-description" id="freeModeDesc">无需通关，直接开始种田、养鸡、牧牛</span>
-              <span class="mode-foot">种植 · 喂鸡喂牛 · 收蛋挤奶</span>
+              <span class="mode-foot">种植 · 喂鸡喂牛 · 收蛋挤奶 · 建议先玩完第 1 关再来</span>
             </button>
           </div>
           <button class="profile-edit-btn" id="editProfileBtn" type="button">👦👧 修改角色和姓名</button>
@@ -257,6 +259,12 @@ export function mountApp(root) {
     layout: { tile: 48, ox: 0, oy: 0 },
     progress: loadProgress(),
     lastRes: {},
+    // 引导状态：本章小课堂讲过没有、这一关运行失败了几次、答案解锁没有。
+    enteredGame: false,
+    introSeen: new Set(),
+    failCount: new Map(),
+    answerUnlocked: new Set(),
+    firstRunHinted: false,
   };
 
   const editor = createEditor(root.querySelector('#editorHost'), {
@@ -402,7 +410,7 @@ export function mountApp(root) {
     const completed = LEVELS.filter((def) => (state.progress.stars[def.id] ?? 0) > 0).length;
     const stars = Object.values(state.progress.stars).reduce((sum, value) => sum + value, 0);
     if (completed === LEVELS.length) {
-      els.teachModeDesc.textContent = `32 关已全部完成 · 已获得 ${stars} 颗星`;
+      els.teachModeDesc.textContent = `44 关全部完成 · 已获得 ${stars} 颗星`;
     } else if (completed === 0) {
       els.teachModeDesc.textContent = '从第 1 关开始，学习中文代码指令';
     } else {
@@ -440,11 +448,13 @@ export function mountApp(root) {
 
   function chooseMode(mode) {
     els.modeGate.hidden = true;
+    state.enteredGame = true;
     if (mode === 'free') {
       if (state.mode !== 'free') enterFreeMode();
       return;
     }
-    if (state.mode !== 'levels') loadLevel(resumeLevelIndex(), { keepCode: true });
+    // 选教学模式时重新装载一次：该弹的章前小课堂、该闪的「▶ 运行」都会按时出现。
+    loadLevel(resumeLevelIndex(), { keepCode: true });
   }
 
   // ---------------------------------------------------------------- 关卡装载
@@ -467,6 +477,7 @@ export function mountApp(root) {
     els.chapterLabel.textContent = `${chapterOf(def).name} · ${def.subtitle}`;
     els.hintDrawer.hidden = true;
     els.hintDrawer.innerHTML = renderHints(def);
+    els.hintBtn.textContent = '? 提示';
     els.resetBtn.textContent = '↺ 重置';
     els.answerBtn.hidden = false;
     els.tutorVoiceBtn.hidden = false;
@@ -474,6 +485,7 @@ export function mountApp(root) {
     state.voiceKey = def.id;
     stopTutorVoice();
 
+    refreshAnswerBtn(def);
     renderPalette();
     renderLevelBar();
     resize();
@@ -482,6 +494,65 @@ export function mountApp(root) {
     SOUND.playMusic(THEME_MUSIC);
     state.progress.lastMode = 'levels';
     saveProgress(state.progress);
+    maybeShowChapterIntro(def);
+    markFirstStep(def);
+  }
+
+  /**
+   * 第 1 关第一次进入：把「▶ 运行」闪一闪。
+   * 孩子第一次看到代码框，最需要知道的是「然后点哪里」。
+   */
+  function markFirstStep(def) {
+    // 同上：还在开篇流程里就先不闪，等孩子点进教学模式再引导。
+    if (!state.enteredGame) return;
+    const firstTime = def.id === 'level-1' && !state.firstRunHinted;
+    els.runBtn.classList.toggle('attract', firstTime);
+    if (firstTime) {
+      setBubble('欢迎来麦田小课堂！代码框里已经写好一行「前进」了，点下面的「▶ 运行」试试吧。', 'info');
+    }
+  }
+
+  /** 答案按钮的门槛：自己试过两次以后才让看，避免上手就抄。 */
+  function refreshAnswerBtn(def) {
+    const unlocked = state.answerUnlocked.has(def.id);
+    els.answerBtn.disabled = !unlocked;
+    els.answerBtn.textContent = unlocked ? '看答案' : '看答案（先自己试 2 次）';
+    els.answerBtn.title = unlocked ? '看一眼参考解' : '先自己试两次，真的卡住了再看答案';
+  }
+
+  /**
+   * 章前小课堂：进入一个还没讲过的新章节时，先弹一张穗穗卡片，
+   * 把这一章的大概念讲清楚，再让孩子进去写代码。
+   */
+  function maybeShowChapterIntro(def) {
+    // 还在开篇流程（选角色 / 选模式）里就不弹，等真正点进教学模式再说。
+    if (state.mode !== 'levels' || !state.enteredGame) return;
+    const intro = CHAPTER_INTRO[def.chapter];
+    if (!intro || state.introSeen.has(def.chapter)) return;
+    state.introSeen.add(def.chapter);
+    showChapterIntro(def.chapter, intro);
+  }
+
+  function showChapterIntro(chapterId, intro) {
+    const mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML = `
+      <div class="modal chapter-intro">
+        <p class="ci-kicker">📖 穗穗小课堂</p>
+        <h2>${intro.title}</h2>
+        <p class="ci-body">${intro.body}</p>
+        <pre class="ci-sample">${intro.sample}</pre>
+        <div class="actions">
+          <button class="btn primary" id="ciStart">知道了，开始 ▶</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(mask);
+    mask.querySelector('#ciStart').addEventListener('click', () => {
+      SOUND.play('click');
+      mask.remove();
+      speakTutor(`chapter-${chapterId}`);
+    });
   }
 
   function enterFreeMode({ focusEditor = false } = {}) {
@@ -497,8 +568,10 @@ export function mountApp(root) {
     els.chapterLabel.textContent = '第 9 章 · 自由经营';
     els.hintDrawer.hidden = true;
     els.hintDrawer.innerHTML = renderHints(def);
+    els.hintBtn.textContent = '? 提示';
     els.resetBtn.textContent = '↺ 重置农场';
     els.answerBtn.hidden = true;
+    els.runBtn.classList.remove('attract');
     els.tutorVoiceBtn.hidden = true;
     document.body.classList.add('free-mode');
     state.voiceKey = 'free';
@@ -523,11 +596,17 @@ export function mountApp(root) {
     const ch = chapterNumber(level());
     const fresh = level().newCommands ?? [];
     els.palette.innerHTML = PALETTE.map((item) => {
+      // 「买鸡 / 买牛」只在自由农场出现，教学模式的指令口袋里不摆出来。
+      if (item.freeOnly && !freeMode) return '';
       const locked = !freeMode && item.chapter > ch;
       const isNew = fresh.some((cmd) => item.label.startsWith(cmd.split(' ')[0])) && item.chapter === ch;
       const cls = ['chip', locked ? 'locked' : '', isNew ? 'new' : ''].filter(Boolean).join(' ');
-      const title = locked ? `第 ${item.chapter} 章解锁` : '点击插入到代码里';
-      return `<button class="${cls}" data-insert="${encodeURIComponent(item.insert)}" data-locked="${locked}" title="${title}">${item.label}</button>`;
+      const action = locked ? `第 ${item.chapter} 章解锁` : '点一下插进代码';
+      const title = item.desc ? `${item.desc}（${action}）` : action;
+      const label = item.desc
+        ? `<b>${item.label}</b><span class="chip-desc">${item.desc}</span>`
+        : `<b>${item.label}</b>`;
+      return `<button class="${cls}" data-insert="${encodeURIComponent(item.insert)}" data-locked="${locked}" title="${title}">${label}</button>`;
     }).join('');
 
     els.palette.querySelectorAll('.chip').forEach((chip) => {
@@ -544,7 +623,7 @@ export function mountApp(root) {
     });
   }
 
-  /** 关卡条：先选章节，再选这一章里的关卡，36 关也不会挤成一条。 */
+  /** 关卡条：先选章节，再选这一章里的关卡，44 关也不会挤成一条。 */
   function renderLevelBar() {
     // 自由模式没有关卡概念，只留「回到关卡」和「自由农场」，不让圆点挤占空间。
     if (state.mode === 'free') {
@@ -645,8 +724,8 @@ export function mountApp(root) {
       { key: 'eggs', icon: '🥚', label: '鸡蛋', value: world.eggs },
       { key: 'milk', icon: '🥛', label: '牛奶', value: world.milk },
       { key: 'pendingEggs', icon: '🏠', label: '鸡舍蛋', value: world.pendingEggs },
-      { key: 'hungryChickens', icon: '🐔', label: '鸡', value: `${countHungryChickens(world)}/${countChickens(world)}` },
-      { key: 'cows', icon: '🐄', label: '牛', value: `${countHungryCows(world)}/${countCows(world)}` },
+      { key: 'hungryChickens', icon: '🐔', label: '没喂鸡', value: `${countHungryChickens(world)}/${countChickens(world)}` },
+      { key: 'cows', icon: '🐄', label: '没喂牛', value: `${countHungryCows(world)}/${countCows(world)}` },
       { key: 'readyCows', icon: '🥛', label: '可挤', value: world.animals.filter((a) => a.kind === 'cow' && a.milkReady !== false).length },
       { key: 'seeds', icon: '🌱', label: '种子', value: world.seeds },
       { key: 'day', icon: '☀️', label: '第', value: `${world.day} 天` },
@@ -843,6 +922,7 @@ export function mountApp(root) {
 
   function setRunning(running) {
     state.running = running;
+    els.runBtn.classList.remove('attract');
     els.runBtn.disabled = running;
     els.runBtn.textContent = running ? '⏳ 运行中…' : '▶ 运行';
   }
@@ -900,7 +980,12 @@ export function mountApp(root) {
       SOUND.play('win');
       const stars = result.stars ?? 1;
       const def = level();
-      setBubble(`完成啦！用了 ${state.world.actions} 步动作。`, 'success');
+      if (def.id === 'level-1' && !state.firstRunHinted) {
+        state.firstRunHinted = true;
+        setBubble('你看！写一行「前进」，小农夫就走一格。你写什么，他就做什么——这就是代码。', 'success');
+      } else {
+        setBubble(`完成啦！用了 ${state.world.actions} 步动作。`, 'success');
+      }
       state.progress.stars[def.id] = Math.max(state.progress.stars[def.id] ?? 0, stars);
       state.progress.unlocked = Math.max(state.progress.unlocked, Math.min(state.index + 1, LEVELS.length - 1));
       saveProgress(state.progress);
@@ -914,8 +999,42 @@ export function mountApp(root) {
       editor.setErrorLine(state.world.lastError.line);
     }
     SOUND.play('error');
-    setBubble(state.world.message, state.world.messageKind === 'warn' ? 'warn' : 'error');
+
+    const def = level();
+    const fails = (state.failCount.get(def.id) ?? 0) + 1;
+    state.failCount.set(def.id, fails);
+    if (fails >= 2 && !state.answerUnlocked.has(def.id)) {
+      state.answerUnlocked.add(def.id);
+      refreshAnswerBtn(def);
+    }
+
+    // 卡住的时候，把孩子最需要的东西直接摊开：提示 + 一句下一步。
+    const kind = state.world.messageKind === 'warn' ? 'warn' : 'error';
+    const opener = fails === 1 ? '别急，' : '再看一眼，';
+    openHints();
+    setBubble(`${opener}${state.world.message}${hintTail(def, fails)}`, kind);
     speakTutor(result.reason === 'empty' ? 'empty' : 'check');
+  }
+
+  /** 失败时在气泡末尾补一句「下一步做什么」，孩子不用自己找。 */
+  function hintTail(def, fails) {
+    if (fails >= 2 && state.answerUnlocked.has(def.id)) {
+      return '　左边的「穗穗提示」已经打开，真的卡住了也可以看答案，看完记得自己写一遍。';
+    }
+    return '　左边的「穗穗提示」已经打开，对照着改一行再运行。';
+  }
+
+  function openHints() {
+    if (!els.hintDrawer.hidden) return;
+    els.hintDrawer.hidden = false;
+    els.hintBtn.textContent = '? 收起提示';
+  }
+
+  function toggleHints() {
+    const opening = els.hintDrawer.hidden;
+    els.hintDrawer.hidden = !opening;
+    els.hintBtn.textContent = opening ? '? 收起提示' : '? 提示';
+    return opening;
   }
 
   // ---------------------------------------------------------------- 弹窗
@@ -923,16 +1042,30 @@ export function mountApp(root) {
   function showWinModal(stars) {
     const def = level();
     const hasNext = state.index < LEVELS.length - 1;
+    const chapterDone = hasNext && LEVELS[state.index + 1].chapter !== def.chapter;
+    const chapter = chapterOf(def);
+    const nextChapter = chapterDone ? chapterOf(LEVELS[state.index + 1]) : null;
+    const nextIntro = nextChapter ? CHAPTER_INTRO[nextChapter.id] : null;
+
+    // 章节最后一关：先夸一整章，再预告下一章要学什么。
+    const head = chapterDone ? `🎉 ${chapter.name} 全部完成！` : '🎉 过关啦！';
+    const tail = !hasNext
+      ? '全部课程完成！可以回关继续刷星，也可以去自由模式慢慢经营农场。'
+      : chapterDone
+        ? `这一章你已经学完啦。下一章是「${nextChapter.name}」${nextIntro ? `，会学：${nextIntro.title}` : ''}。`
+        : '';
+    const lowStar = stars < 3 ? '<br>再少走几步，就能拿三颗星啦！' : '';
+
     const mask = document.createElement('div');
     mask.className = 'modal-mask';
     mask.innerHTML = `
       <div class="modal">
-        <h2>🎉 过关啦！</h2>
+        <h2>${head}</h2>
         <div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
-        <p>「${def.name}」完成，用了 <b>${state.world.actions}</b> 步动作（三星线 ${def.par} 步）。<br>
+        <p>「${def.name}」完成，用了 <b>${state.world.actions}</b> 步动作（三星线 ${def.par} 步）。${lowStar}<br>
         农场现在有 🪙 ${state.world.coins} 金币、🌾 ${state.world.wheat} 小麦、🧺 ${state.world.straw} 稻草、<br>
         🥚 ${state.world.eggs} 鸡蛋、🥛 ${state.world.milk} 牛奶。<br>
-        ${hasNext ? '' : '全部课程完成！可以回关继续刷星，也可以去自由模式慢慢经营农场。'}</p>
+        ${tail}</p>
         <div class="actions">
           ${hasNext ? '<button class="btn primary" id="nextBtn">下一关 ▶</button>' : '<button class="btn primary" id="nextBtn">🐔 进入自由模式</button>'}
           <button class="btn ghost" id="replayBtn">再玩一次</button>
@@ -1025,8 +1158,7 @@ export function mountApp(root) {
 
   els.hintBtn.addEventListener('click', () => {
     SOUND.play('click');
-    const opening = els.hintDrawer.hidden;
-    els.hintDrawer.hidden = !opening;
+    const opening = toggleHints();
     if (opening) {
       setBubble(`穗穗提示：${level().hints[0] ?? level().objective}`, 'info');
       speakTutor(level().id);
@@ -1067,11 +1199,46 @@ export function mountApp(root) {
   }, 17000);
 
   els.answerBtn.addEventListener('click', () => {
+    const def = level();
+    if (!state.answerUnlocked.has(def.id)) {
+      SOUND.play('blocked');
+      setBubble('先自己试两次，真的卡住了再看答案，这样记得更牢哦。', 'warn');
+      openHints();
+      return;
+    }
     SOUND.play('click');
-    editor.setValue(level().solution);
-    setBubble('这是参考解。看懂以后，试着自己写一遍吧！', 'warn');
-    speakTutor('answer');
+    confirmAnswer(def);
   });
+
+  /** 看答案前确认一次，避免孩子顺手就抄。 */
+  function confirmAnswer(def) {
+    const mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML = `
+      <div class="modal">
+        <h2>真的要看答案吗？</h2>
+        <p>先自己试一次，会记得更牢哦。</p>
+        <div class="actions">
+          <button class="btn ghost" id="ansKeep">我再试试</button>
+          <button class="btn primary" id="ansShow">看答案</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(mask);
+    mask.querySelector('#ansKeep').addEventListener('click', () => {
+      SOUND.play('click');
+      mask.remove();
+      editor.focus();
+    });
+    mask.querySelector('#ansShow').addEventListener('click', () => {
+      SOUND.play('click');
+      mask.remove();
+      editor.setValue(def.solution);
+      openHints();
+      setBubble('这是参考解。先看懂每一步在做什么，再点「↺ 重置」，自己写一遍吧！', 'warn');
+      speakTutor('answer');
+    });
+  }
 
   els.tutorVoiceBtn.addEventListener('click', () => {
     SOUND.play('click');

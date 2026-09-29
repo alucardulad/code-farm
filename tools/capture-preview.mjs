@@ -164,6 +164,17 @@ async function main() {
         return true;
       `);
       await sleep(600);
+      // 新章节会先弹「穗穗小课堂」，截图前先收起来。
+      await dismissChapterIntro();
+    };
+
+    /** 关掉章前小课堂卡片（没有就什么都不做）。 */
+    const dismissChapterIntro = async () => {
+      await cdp.evaluate(`
+        document.querySelector('.chapter-intro #ciStart')?.click();
+        return true;
+      `);
+      await sleep(250);
     };
 
     // 1) 第一关初始画面
@@ -172,7 +183,11 @@ async function main() {
     await cdp.waitFor('window.__farm && document.querySelector("#taskText")?.textContent', { label: '关卡载入' });
     await sleep(1200);
     await skipOnboarding();
-    await sleep(700);
+    await sleep(500);
+    // 章前小课堂卡片单独留一张预览图
+    await cdp.shot('07-章前小课堂.png');
+    await dismissChapterIntro();
+    await sleep(500);
     await cdp.shot('01-第1关.png');
 
     // 2) 过关结算：真跑一遍第一关，让结算弹窗自己弹出来
@@ -223,7 +238,11 @@ async function main() {
       return true;
     `);
     await sleep(500);
-    await cdp.evaluate('document.querySelector("#hintBtn").click(); return true;');
+    // 现在运行失败会自动展开提示抽屉，这里保证它一定是打开状态。
+    await cdp.evaluate(`
+      if (document.querySelector('#hintDrawer').hidden) document.querySelector('#hintBtn').click();
+      return true;
+    `);
     await cdp.waitFor('!document.querySelector("#hintDrawer").hidden', { label: '提示抽屉展开' });
     await sleep(700);
     await cdp.shot('04-丰收仙女提示.png');
