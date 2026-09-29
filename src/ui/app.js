@@ -14,7 +14,7 @@ import { paintFrame } from '../core/render.js';
 import { FarmAnimator } from '../core/engine.js';
 import { AudioManager } from '../core/audio.js';
 import { loadSprites } from '../core/sprites.js';
-import { TUTOR_NAME, CHAPTER_INTRO, getTutorLine } from '../core/tutor-lines.js';
+import { TUTOR_NAME, CHAPTER_INTRO, getTutorLine, hintVoiceKey } from '../core/tutor-lines.js';
 import { createEditor } from './editor.js';
 import { MUSIC_CREDITS, SFX_CREDITS, FREESOUND_URL } from '../core/credits.js';
 
@@ -567,7 +567,7 @@ export function mountApp(root) {
     els.taskText.textContent = def.objective;
     els.chapterLabel.textContent = '第 9 章 · 自由经营';
     els.hintDrawer.hidden = true;
-    els.hintDrawer.innerHTML = renderHints(def);
+    els.hintDrawer.innerHTML = renderHints(def, false);
     els.hintBtn.textContent = '? 提示';
     els.resetBtn.textContent = '↺ 重置农场';
     els.answerBtn.hidden = true;
@@ -586,9 +586,15 @@ export function mountApp(root) {
     if (focusEditor) editor.focus();
   }
 
-  function renderHints(def) {
-    const items = def.hints.map((hint) => `<li>${hint}</li>`).join('');
-    return `<h4>💡 卡住了看这里</h4><ul>${items}</ul>`;
+  function renderHints(def, withVoice = true) {
+    const items = def.hints.map((hint, index) => {
+      if (!withVoice) return `<li>${hint}</li>`;
+      // 每条提示都能单独点开听，识字不多的孩子也能跟上。
+      const key = hintVoiceKey(def.id, index + 1);
+      return `<li><button class="hint-speak" type="button" data-voice="${key}" title="让穗穗读这一条">🔊</button><span>${hint}</span></li>`;
+    }).join('');
+    const head = withVoice ? '💡 卡住了看这里（点 🔊 让穗穗读）' : '💡 卡住了看这里';
+    return `<h4>${head}</h4><ul>${items}</ul>`;
   }
 
   function renderPalette() {
@@ -1154,6 +1160,13 @@ export function mountApp(root) {
   els.freeModeBtn.addEventListener('click', () => {
     SOUND.play('click');
     chooseMode('free');
+  });
+
+  els.hintDrawer.addEventListener('click', (event) => {
+    const btn = event.target.closest('.hint-speak');
+    if (!btn) return;
+    SOUND.play('click');
+    speakTutor(btn.dataset.voice);
   });
 
   els.hintBtn.addEventListener('click', () => {

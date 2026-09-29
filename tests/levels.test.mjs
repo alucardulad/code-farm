@@ -96,6 +96,17 @@ for (const level of LEVELS) {
     assert.notEqual(starter, solution, 'starter 和 solution 完全一样，玩家没得写');
   });
 
+  check(`${level.id} 的第 2 条起提示都有单独配音`, () => {
+    for (let i = 1; i < level.hints.length; i += 1) {
+      const key = `level-${level.id.split('-')[1]}-h${i + 1}`;
+      const line = TUTOR_LINES[key];
+      assert.ok(line?.text, `缺少 ${key} 的配音台词`);
+      const file = join(VOICE_DIR, line.file);
+      assert.ok(existsSync(file), `缺少配音文件 ${line.file}`);
+      assert.ok(statSync(file).size > 1024, `配音文件过小：${line.file}`);
+    }
+  });
+
   check(`${level.id} 有丰收仙女配音`, () => {
     const line = TUTOR_LINES[level.id];
     assert.ok(line?.text, '缺少配音台词');

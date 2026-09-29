@@ -676,7 +676,29 @@ canvas {
   padding-left: 18px;
 }
 
-.hint-drawer li { margin-bottom: 4px; }
+.hint-drawer li {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+.hint-drawer li span { flex: 1; min-width: 0; }
+
+.hint-speak {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--wood-2);
+  background: linear-gradient(180deg, #fff6dd, var(--cream-2));
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(90, 60, 25, 0.3);
+}
+.hint-speak:hover { transform: translateY(-1px); }
+.hint-speak:active { transform: translateY(1px); box-shadow: none; }
 
 /* ---------------------------------------------------------------- 关卡栏 */
 

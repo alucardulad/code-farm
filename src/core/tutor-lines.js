@@ -95,7 +95,21 @@ export const TUTOR_LINES = {
     `chapter-${key}`,
     { file: `chapter-${key}.mp3`, text: intro.voice },
   ])),
+  // 每条提示都能单独听：第 1 条复用关卡语音，第 2 条起各自一个文件。
+  ...Object.fromEntries(LEVELS.flatMap((def) => def.hints.slice(1).map((hint, index) => [
+    hintVoiceKey(def.id, index + 2),
+    { file: `${hintVoiceKey(def.id, index + 2)}.mp3`, text: hint },
+  ]))),
 };
+
+/**
+ * 某一条提示对应的语音键。
+ * 第 1 条提示并进关卡语音（「我是穗穗，陪你完成第 X 关。给你一个小提示：…」），
+ * 第 2 条起各有一条自己的音频。
+ */
+export function hintVoiceKey(levelId, hintNumber) {
+  return hintNumber <= 1 ? levelId : `${levelId}-h${hintNumber}`;
+}
 
 export function getTutorLine(key) {
   return TUTOR_LINES[key] ?? null;
