@@ -90,11 +90,17 @@ class Cdp {
   }
 
   async shot(fileName) {
+    const covered = await this.evaluate(`
+      // 章前小课堂那张是有意留着的，不算「遮罩」。
+      const mask = [...document.querySelectorAll('.modal-mask')].find((el) => !el.querySelector('.chapter-intro'));
+      const gate = document.querySelector('#modeGate:not([hidden])');
+      return mask ? '有弹窗遮罩' : gate ? '有开篇遮罩' : '';
+    `);
     const { data } = await this.send('Page.captureScreenshot', { format: 'png' });
     const target = join(OUT_DIR, fileName);
     writeFileSync(target, Buffer.from(data, 'base64'));
     const kb = Math.round(Buffer.from(data, 'base64').length / 1024);
-    console.log(`  📸 ${fileName}（${kb} KB）`);
+    console.log(`  📸 ${fileName}（${kb} KB）${covered ? ` ⚠️ ${covered}` : ''}`);
   }
 }
 
@@ -115,6 +121,14 @@ async function connect(port) {
 
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true });
+
+  // 先确认本地服务在跑，不然会一路等到超时才报错，看不出是服务没起来。
+  try {
+    const res = await fetch(BASE_URL, { method: 'HEAD' });
+    if (!res.ok) throw new Error(String(res.status));
+  } catch {
+    throw new Error(`连不上 ${BASE_URL}，先在另一个终端跑 npm run dev。`);
+  }
   const profile = mkdtempSync(join(tmpdir(), 'code-farm-shot-'));
   const chrome = spawn(findChrome(), [
     '--headless=new',
@@ -164,8 +178,6 @@ async function main() {
         return true;
       `);
       await sleep(600);
-      // 新章节会先弹「穗穗小课堂」，截图前先收起来。
-      await dismissChapterIntro();
     };
 
     /** 关掉章前小课堂卡片（没有就什么都不做）。 */
@@ -183,8 +195,9 @@ async function main() {
     await cdp.waitFor('window.__farm && document.querySelector("#taskText")?.textContent', { label: '关卡载入' });
     await sleep(1200);
     await skipOnboarding();
-    await sleep(500);
-    // 章前小课堂卡片单独留一张预览图
+    // 章前小课堂卡片单独留一张预览图：这张要的就是卡片留在画面上。
+    await cdp.waitFor('document.querySelector(".chapter-intro")', { label: '穗穗小课堂卡片' });
+    await sleep(600);
     await cdp.shot('07-章前小课堂.png');
     await dismissChapterIntro();
     await sleep(500);
@@ -218,10 +231,12 @@ async function main() {
     await cdp.waitFor('window.__farm && document.querySelector("#canvas")', { label: '游戏挂载完成' });
     await sleep(800);
     await skipOnboarding();
+    await dismissChapterIntro();
     await cdp.evaluate(`document.querySelector('.chapter-tab[data-chapter="ch4"]')?.click(); return true;`);
     await sleep(400);
     await cdp.evaluate(`document.querySelector('.dot-btn[data-index="25"]')?.click(); return true;`);
     await sleep(500);
+    await dismissChapterIntro();
     await cdp.evaluate(`
       window.__farm.editor.setValue('翻土\\n播种\\n浇水');
       document.querySelector('#runBtn').click();
@@ -277,10 +292,14 @@ async function main() {
     await cdp.waitFor('window.__farm && document.querySelector("#canvas")', { label: '游戏挂载完成' });
     await sleep(800);
     await skipOnboarding();
+    await dismissChapterIntro();
     await cdp.evaluate(`document.querySelector('.chapter-tab[data-chapter="ch4"]')?.click(); return true;`);
     await sleep(500);
     await cdp.evaluate(`document.querySelector('.dot-btn[data-index="26"]')?.click(); return true;`);
     await sleep(600);
+    // 切到没进过的章节会弹「穗穗小课堂」，不关掉整张图会被遮罩压暗。
+    await dismissChapterIntro();
+    await sleep(400);
     await cdp.shot('05-牧场劳作.png');
 
     await cdp.evaluate(`
@@ -291,10 +310,69 @@ async function main() {
     await cdp.waitFor('window.__farm.state.world.eggs > 0', { label: '收到鸡蛋' });
     await sleep(150);
     await cdp.shot('06-收鸡蛋.png');
+
+    // 7) 集市：切到第 7 章，跑第 37 关「收鸡蛋 → 走到集市 → 卖出」，停在集市旁边
+    await cdp.evaluate(`
+      const p = JSON.parse(localStorage.getItem('code-farm-progress-v1'));
+      p.unlocked = 43;
+      for (let n = 1; n <= 36; n += 1) p.stars['level-' + n] = p.stars['level-' + n] ?? 3;
+      localStorage.setItem('code-farm-progress-v1', JSON.stringify(p));
+      return true;
+    `);
+    await cdp.send('Page.reload');
+    await cdp.waitFor('window.__farm && document.querySelector("#canvas")', { label: '游戏挂载完成' });
+    await sleep(800);
+    await skipOnboarding();
+    await dismissChapterIntro();
+    await cdp.evaluate(`document.querySelector('.chapter-tab[data-chapter="ch7"]')?.click(); return true;`);
+    await sleep(500);
+    await cdp.evaluate(`document.querySelector('.dot-btn[data-index="36"]')?.click(); return true;`);
+    await sleep(600);
+    await dismissChapterIntro();
+    await sleep(400);
+    await cdp.evaluate(`
+      window.__farm.editor.setValue('前进 2\\n收鸡蛋\\n前进 4\\n右转\\n前进\\n卖出');
+      document.querySelector('#runBtn').click();
+      return true;
+    `);
+    await cdp.waitFor('window.__farm.state.world.actions >= 5', { label: '走到集市旁' });
+    await cdp.shot('08-集市交易.png');
+
+    // 9) 自由市场：进自由农场，真跑一遍「挤奶 → 卖出 → 买稻草 → 喂牛 → 等一天 → 再卖」
+    const freeMarketCode = [
+      '// ① 先挤一瓶奶，换点本钱',
+      '右转', '前进 3', '挤奶', '前进 2', '左转', '前进 1', '卖出',
+      '',
+      '// ② 用金币买稻草，喂饱这头牛',
+      '买稻草', '左转', '前进 1', '喂牛',
+      '',
+      '// ③ 等一天，牛又有奶了，再挤一瓶',
+      '等待一天', '挤奶',
+    ].join('\n');
+
+    await cdp.evaluate('localStorage.clear(); return true;');
+    await cdp.send('Page.reload');
+    await cdp.waitFor('window.__farm && document.querySelector("#canvas")', { label: '游戏挂载完成' });
+    await sleep(1000);
+    await skipOnboarding('free');
+    await sleep(800);
+    await cdp.evaluate(`
+      window.__farm.editor.setValue(${JSON.stringify(freeMarketCode)});
+      document.querySelector('#runBtn').click();
+      return true;
+    `);
+    await cdp.waitFor('window.__farm.state.running === true', { label: '自由农场开始干活' });
+    await cdp.waitFor('window.__farm.state.running === false && window.__farm.state.world.day >= 2', { label: '自由农场跑完一天' });
+    await sleep(700);
+    await cdp.shot('09-自由市场.png');
     socket.close();
   } finally {
     chrome.kill('SIGKILL');
-    rmSync(profile, { recursive: true, force: true });
+    try {
+      rmSync(profile, { recursive: true, force: true });
+    } catch {
+      /* Chrome 还在写临时 profile，留给系统清理即可 */
+    }
   }
 }
 

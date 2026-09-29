@@ -1330,6 +1330,32 @@ canvas {
   .chapter-tab .ct-meta { display: none; }
   .chapter-tab { padding: 6px 10px; }
   .levelbar { gap: 8px; }
+
+  /* 顶栏挤成一条可以横向滑的带子：窄屏上资源条一换行就会吃掉半个屏幕 */
+  .topbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 8px;
+    padding: 8px 12px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .topbar::-webkit-scrollbar { display: none; }
+  .brand { font-size: 16px; gap: 6px; letter-spacing: 0; }
+  .brand .logo { width: 28px; height: 28px; font-size: 15px; border-width: 2px; }
+  .level-chip,
+  .player-chip { font-size: 12px; padding: 4px 10px; }
+  .resources { flex-wrap: nowrap; margin-left: 0; gap: 6px; }
+  .res { min-width: 0; gap: 5px; padding: 4px 10px 4px 8px; font-size: 12px; }
+  .res .icon { font-size: 14px; }
+  .icon-btn { font-size: 12px; padding: 6px 10px; }
+  /* 顶栏文字一律不换行，换行会把顶栏撑到 200px 以上 */
+  .brand,
+  .level-chip,
+  .player-chip,
+  .res,
+  .icon-btn { white-space: nowrap; }
 }
 
 @media (max-width: 940px) {
@@ -1372,8 +1398,55 @@ canvas {
   .tutor-avatar { height: 90px; }
   .tutor-name { padding: 3px; }
   .tutor-name span { display: none; }
-  .bubble { max-height: 82px; margin-bottom: 10px; padding: 7px 10px; font-size: 12px; }
+  .bubble { max-height: 74px; margin-bottom: 10px; padding: 6px 9px; font-size: 11px; }
   .bubble::after { left: -12px; bottom: 18px; }
+
+  /* ---- 手机：农场在上、代码在下，整页滚动，操作按钮钉在底部 ---- */
+  html,
+  body { height: auto; overflow: auto; }
+  .app { height: auto; min-height: 100%; }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    min-height: 0;
+  }
+  /* 点「运行」的时候得能看见农场，所以把农场排到代码上面 */
+  .stage-wrap { order: 1; }
+  .code-panel { order: 2; }
+
+  .stage { flex: 0 0 auto; height: min(38vh, 280px); }
+  .levelbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 6px 10px;
+    scrollbar-width: none;
+  }
+  .levelbar::-webkit-scrollbar { display: none; }
+
+  .code-panel { grid-template-rows: auto minmax(84px, 16vh) auto auto; }
+  .palette { max-height: 16vh; min-height: 56px; padding: 8px 10px; }
+  .palette-title { margin-bottom: 6px; font-size: 11px; }
+  .chip { padding: 5px 9px; font-size: 11px; }
+
+  /* 运行 / 重置 / 提示 / 看答案 钉在屏幕底部，小朋友不用翻着找 */
+  .actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    gap: 6px;
+    padding: 8px 10px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .btn { min-width: 0; padding: 8px 4px; font-size: 11.5px; line-height: 1.3; }
+
+  .task-card { top: 10px; right: 10px; width: min(200px, 56%); }
+  .task-card .tc-head { padding: 6px 9px; font-size: 12px; gap: 5px; }
+  .task-card .tc-body { padding: 7px 9px; font-size: 11px; line-height: 1.5; }
+  .goal-line { margin-top: 5px; font-size: 11px; }
+  .hint-drawer { top: 10px; left: 10px; width: min(220px, 58%); font-size: 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

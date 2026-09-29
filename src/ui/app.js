@@ -882,9 +882,12 @@ export function mountApp(root) {
   function resize() {
     const world = state.world;
     const rect = els.stage.getBoundingClientRect();
-    const maxW = Math.max(240, rect.width - 48);
-    const maxH = Math.max(200, rect.height - 48);
-    const tile = Math.max(28, Math.min(88, Math.floor(Math.min(maxW / world.width, maxH / world.height))));
+    // 手机上留白和最小格子都要小一点，不然 14 格宽的地图会超出屏幕。
+    const narrow = rect.width < 700;
+    const inset = narrow ? 16 : 48;
+    const maxW = Math.max(narrow ? 200 : 240, rect.width - inset);
+    const maxH = Math.max(narrow ? 140 : 200, rect.height - inset);
+    const tile = Math.max(narrow ? 16 : 28, Math.min(88, Math.floor(Math.min(maxW / world.width, maxH / world.height))));
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cssW = world.width * tile;
